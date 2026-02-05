@@ -1,0 +1,189 @@
+/* ==========================================
+   File Processing Dashboard - Custom Styles
+   ========================================== */
+
+/* Page Background */
+.dashboardPage {
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+}
+
+/* Stats Tiles Row */
+.statsRow {
+    padding: 0.5rem;
+}
+
+.statTile {
+    margin: 0.25rem;
+}
+
+.statTile .sapMGT {
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.statTile .sapMGT:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* Tile Colors by Status */
+.tileProcessing .sapMGT {
+    border-left: 4px solid #e9730c;
+}
+
+.tileReady .sapMGT {
+    border-left: 4px solid #5899da;
+}
+
+.tileDone .sapMGT {
+    border-left: 4px solid #107e3e;
+}
+
+.tileError .sapMGT {
+    border-left: 4px solid #bb0000;
+}
+
+/* Jobs Panel */
+.jobsPanel {
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.jobsPanel .sapMPanelHdr {
+    font-weight: 600;
+    color: #32363a;
+}
+
+/* Table Styling */
+.sapMList {
+    border-radius: 8px;
+}
+
+.sapMListTblRow {
+    transition: background-color 0.15s ease;
+}
+
+.sapMListTblRow:hover {
+    background-color: rgba(0, 112, 187, 0.05) !important;
+}
+
+/* Progress Indicator */
+.sapMPI {
+    height: 8px;
+    border-radius: 4px;
+}
+
+.sapMPIBar {
+    border-radius: 4px;
+}
+
+/* Text Helpers */
+.textMuted {
+    color: #6a6d70 !important;
+    font-size: 0.75rem;
+}
+
+.sapMTextBold {
+    font-weight: 600;
+}
+
+/* Status Object Styles */
+.sapMObjStatusSuccess {
+    color: #107e3e !important;
+}
+
+.sapMObjStatusError {
+    color: #bb0000 !important;
+}
+
+.sapMObjStatusWarning {
+    color: #e9730c !important;
+}
+
+/* Header Toolbar */
+.sapMOTB {
+    background: linear-gradient(to right, #0a6ed1, #0854a0);
+    border-radius: 0;
+}
+
+.sapMOTB .sapMTitle {
+    color: #ffffff !important;
+}
+
+.sapMOTB .sapMLabel {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.sapMOTB .sapMBtn {
+    color: #ffffff;
+}
+
+.sapMOTB .sapMBtnEmphasized {
+    background-color: #ffffff;
+    border-color: #ffffff;
+    color: #0a6ed1;
+}
+
+.sapMOTB .sapMBtnEmphasized:hover {
+    background-color: #f0f0f0;
+}
+
+/* Switch in Header */
+.sapMOTB .sapMSwt {
+    margin-top: 2px;
+}
+
+/* Footer */
+.sapMPageFooter {
+    background-color: #fafafa;
+    border-top: 1px solid #e5e5e5;
+}
+
+/* Illustrated Message */
+.sapFIllustratedMessage {
+    padding: 2rem;
+}
+
+/* Dialog */
+.sapMDialog {
+    border-radius: 12px;
+}
+
+.sapMDialogTitle {
+    font-weight: 600;
+}
+
+/* Message Strip */
+.sapMMsgStrip {
+    border-radius: 8px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .statsRow {
+        flex-direction: column;
+    }
+    
+    .statTile {
+        width: 100%;
+        margin: 0.25rem 0;
+    }
+}
+
+/* Animation for processing status */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+.sapMObjStatusWarning .sapUiIcon {
+    animation: pulse 1.5s infinite;
+}
+
+/* Numeric Content in Tiles */
+.sapMNCValue {
+    font-weight: 700;
+    font-size: 2rem !important;
+}

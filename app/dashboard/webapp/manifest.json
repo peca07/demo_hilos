@@ -1,0 +1,98 @@
+{
+    "_version": "1.58.0",
+    "sap.app": {
+        "id": "fileproc.dashboard",
+        "type": "application",
+        "title": "File Processing Dashboard",
+        "description": "Monitor and manage file processing jobs",
+        "applicationVersion": {
+            "version": "1.0.0"
+        },
+        "dataSources": {
+            "FileProcService": {
+                "uri": "/odata/v4/FileProcService/",
+                "type": "OData",
+                "settings": {
+                    "odataVersion": "4.0"
+                }
+            }
+        }
+    },
+    "sap.ui": {
+        "technology": "UI5",
+        "deviceTypes": {
+            "desktop": true,
+            "tablet": true,
+            "phone": true
+        }
+    },
+    "sap.ui5": {
+        "rootView": {
+            "viewName": "fileproc.dashboard.view.App",
+            "type": "XML",
+            "async": true,
+            "id": "app"
+        },
+        "dependencies": {
+            "minUI5Version": "1.120.0",
+            "libs": {
+                "sap.m": {},
+                "sap.ui.core": {},
+                "sap.ui.layout": {},
+                "sap.ui.unified": {}
+            }
+        },
+        "models": {
+            "": {
+                "dataSource": "FileProcService",
+                "type": "sap.ui.model.odata.v4.ODataModel",
+                "settings": {
+                    "synchronizationMode": "None",
+                    "operationMode": "Server",
+                    "autoExpandSelect": true,
+                    "earlyRequests": true
+                }
+            },
+            "i18n": {
+                "type": "sap.ui.model.resource.ResourceModel",
+                "settings": {
+                    "bundleName": "fileproc.dashboard.i18n.i18n"
+                }
+            }
+        },
+        "routing": {
+            "config": {
+                "routerClass": "sap.m.routing.Router",
+                "viewType": "XML",
+                "viewPath": "fileproc.dashboard.view",
+                "controlId": "app",
+                "controlAggregation": "pages",
+                "async": true
+            },
+            "routes": [
+                {
+                    "name": "main",
+                    "pattern": "",
+                    "target": "main"
+                }
+            ],
+            "targets": {
+                "main": {
+                    "viewName": "Main",
+                    "viewLevel": 1
+                }
+            }
+        },
+        "resources": {
+            "css": [
+                {
+                    "uri": "css/style.css"
+                }
+            ]
+        },
+        "contentDensities": {
+            "compact": true,
+            "cozy": true
+        }
+    }
+}

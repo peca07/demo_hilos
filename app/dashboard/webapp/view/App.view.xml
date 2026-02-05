@@ -1,0 +1,13 @@
+<mvc:View
+    controllerName="fileproc.dashboard.controller.App"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    displayBlock="true">
+    
+    <App id="app" busy="{appView>/busy}">
+        <pages>
+            <!-- Main view will be placed here by router -->
+        </pages>
+    </App>
+    
+</mvc:View>

@@ -1,0 +1,293 @@
+<mvc:View
+    controllerName="fileproc.dashboard.controller.Main"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:f="sap.f"
+    xmlns:core="sap.ui.core"
+    xmlns:l="sap.ui.layout"
+    xmlns:grid="sap.ui.layout.cssgrid">
+    
+    <Page 
+        id="mainPage"
+        title="{i18n>appTitle}"
+        showNavButton="false"
+        class="sapUiContentPadding dashboardPage">
+        
+        <!-- Header Toolbar -->
+        <customHeader>
+            <OverflowToolbar>
+                <Title text="{i18n>appTitle}" level="H4"/>
+                <ToolbarSpacer/>
+                
+                <!-- Auto Refresh Toggle -->
+                <Label text="{i18n>autoRefresh}" class="sapUiSmallMarginEnd"/>
+                <Switch 
+                    id="autoRefreshSwitch"
+                    state="{appView>/autoRefresh}"
+                    change="onAutoRefreshChange"
+                    customTextOn="ON"
+                    customTextOff="OFF"/>
+                
+                <ToolbarSeparator/>
+                
+                <!-- Manual Refresh -->
+                <Button 
+                    icon="sap-icon://refresh"
+                    tooltip="{i18n>refresh}"
+                    press="onRefresh"/>
+                    
+                <!-- Create Job Button -->
+                <Button 
+                    id="createJobBtn"
+                    text="{i18n>createJob}"
+                    icon="sap-icon://add"
+                    type="Emphasized"
+                    press="onCreateJobPress"/>
+            </OverflowToolbar>
+        </customHeader>
+        
+        <content>
+            <l:VerticalLayout width="100%" class="sapUiMediumMargin">
+                
+                <!-- Stats Cards Row -->
+                <l:HorizontalLayout class="sapUiSmallMarginBottom statsRow" allowWrapping="true">
+                    <GenericTile
+                        class="sapUiTinyMarginEnd statTile"
+                        header="{i18n>totalJobs}"
+                        subheader="{i18n>allTime}"
+                        press="onStatTilePress">
+                        <TileContent>
+                            <NumericContent
+                                value="{viewModel>/stats/totalJobs}"
+                                icon="sap-icon://document"/>
+                        </TileContent>
+                    </GenericTile>
+                    
+                    <GenericTile
+                        class="sapUiTinyMarginEnd statTile tileProcessing"
+                        header="{i18n>processing}"
+                        subheader="{i18n>currentlyRunning}">
+                        <TileContent>
+                            <NumericContent
+                                value="{viewModel>/stats/processingJobs}"
+                                valueColor="Critical"
+                                icon="sap-icon://process"/>
+                        </TileContent>
+                    </GenericTile>
+                    
+                    <GenericTile
+                        class="sapUiTinyMarginEnd statTile tileReady"
+                        header="{i18n>inQueue}"
+                        subheader="{i18n>waitingWorker}">
+                        <TileContent>
+                            <NumericContent
+                                value="{viewModel>/stats/readyJobs}"
+                                valueColor="Neutral"
+                                icon="sap-icon://queue"/>
+                        </TileContent>
+                    </GenericTile>
+                    
+                    <GenericTile
+                        class="sapUiTinyMarginEnd statTile tileDone"
+                        header="{i18n>completed}"
+                        subheader="{i18n>successfully}">
+                        <TileContent>
+                            <NumericContent
+                                value="{viewModel>/stats/doneJobs}"
+                                valueColor="Good"
+                                icon="sap-icon://accept"/>
+                        </TileContent>
+                    </GenericTile>
+                    
+                    <GenericTile
+                        class="statTile tileError"
+                        header="{i18n>errors}"
+                        subheader="{i18n>failed}">
+                        <TileContent>
+                            <NumericContent
+                                value="{viewModel>/stats/errorJobs}"
+                                valueColor="Error"
+                                icon="sap-icon://error"/>
+                        </TileContent>
+                    </GenericTile>
+                </l:HorizontalLayout>
+                
+                <!-- Jobs Table -->
+                <Panel 
+                    headerText="{i18n>jobsList}"
+                    expandable="false"
+                    expanded="true"
+                    class="sapUiSmallMarginTop jobsPanel">
+                    
+                    <Table
+                        id="jobsTable"
+                        items="{
+                            path: '/UploadJobs',
+                            sorter: { path: 'createdAt', descending: true },
+                            parameters: {
+                                $count: true
+                            }
+                        }"
+                        growing="true"
+                        growingThreshold="20"
+                        alternateRowColors="true"
+                        mode="SingleSelectMaster"
+                        selectionChange="onJobSelect">
+                        
+                        <headerToolbar>
+                            <OverflowToolbar>
+                                <Title text="{i18n>recentJobs}"/>
+                                <ToolbarSpacer/>
+                                <SearchField 
+                                    width="300px" 
+                                    placeholder="{i18n>searchPlaceholder}"
+                                    liveChange="onSearch"/>
+                            </OverflowToolbar>
+                        </headerToolbar>
+                        
+                        <columns>
+                            <Column width="10%">
+                                <Text text="{i18n>status}"/>
+                            </Column>
+                            <Column width="25%">
+                                <Text text="{i18n>fileName}"/>
+                            </Column>
+                            <Column width="15%">
+                                <Text text="{i18n>progress}"/>
+                            </Column>
+                            <Column width="12%">
+                                <Text text="{i18n>duration}"/>
+                            </Column>
+                            <Column width="12%">
+                                <Text text="{i18n>lines}"/>
+                            </Column>
+                            <Column width="12%">
+                                <Text text="{i18n>throughput}"/>
+                            </Column>
+                            <Column width="14%">
+                                <Text text="{i18n>worker}"/>
+                            </Column>
+                        </columns>
+                        
+                        <items>
+                            <ColumnListItem type="Active">
+                                <cells>
+                                    <!-- Status -->
+                                    <ObjectStatus
+                                        text="{status}"
+                                        state="{
+                                            path: 'status',
+                                            formatter: '.formatStatusState'
+                                        }"
+                                        icon="{
+                                            path: 'status',
+                                            formatter: '.formatStatusIcon'
+                                        }"/>
+                                    
+                                    <!-- File Name -->
+                                    <VBox>
+                                        <Text text="{fileName}" class="sapMTextBold"/>
+                                        <Text 
+                                            text="{
+                                                path: 'totalBytes',
+                                                formatter: '.formatBytes'
+                                            }" 
+                                            class="sapUiTinyMarginTop textMuted"/>
+                                    </VBox>
+                                    
+                                    <!-- Progress -->
+                                    <VBox>
+                                        <ProgressIndicator
+                                            percentValue="{
+                                                parts: ['processedBytes', 'totalBytes'],
+                                                formatter: '.formatProgress'
+                                            }"
+                                            displayValue="{
+                                                parts: ['processedBytes', 'totalBytes'],
+                                                formatter: '.formatProgressText'
+                                            }"
+                                            state="{
+                                                path: 'status',
+                                                formatter: '.formatProgressState'
+                                            }"
+                                            showValue="true"/>
+                                    </VBox>
+                                    
+                                    <!-- Duration -->
+                                    <VBox>
+                                        <Text text="{totalDurationText}"/>
+                                        <Text 
+                                            text="{
+                                                path: 'avgBatchText',
+                                                formatter: '.formatAvgBatch'
+                                            }" 
+                                            class="textMuted"/>
+                                    </VBox>
+                                    
+                                    <!-- Lines -->
+                                    <VBox>
+                                        <Text text="{
+                                            path: 'processedLines',
+                                            formatter: '.formatNumber'
+                                        }"/>
+                                        <Text text="{i18n>lines}" class="textMuted"/>
+                                    </VBox>
+                                    
+                                    <!-- Throughput -->
+                                    <VBox>
+                                        <Text text="{
+                                            parts: ['linesPerSecond'],
+                                            formatter: '.formatThroughput'
+                                        }"/>
+                                        <Text text="{i18n>linesPerSec}" class="textMuted"/>
+                                    </VBox>
+                                    
+                                    <!-- Worker -->
+                                    <VBox>
+                                        <Text text="{claimedBy}"/>
+                                        <Text 
+                                            text="{
+                                                path: 'attemptCount',
+                                                formatter: '.formatAttempts'
+                                            }" 
+                                            class="textMuted"/>
+                                    </VBox>
+                                </cells>
+                            </ColumnListItem>
+                        </items>
+                        
+                        <noData>
+                            <IllustratedMessage
+                                illustrationType="sapIllus-EmptyList"
+                                title="{i18n>noJobs}"
+                                description="{i18n>noJobsDesc}">
+                                <additionalContent>
+                                    <Button 
+                                        text="{i18n>createFirstJob}" 
+                                        press="onCreateJobPress"
+                                        type="Emphasized"/>
+                                </additionalContent>
+                            </IllustratedMessage>
+                        </noData>
+                    </Table>
+                </Panel>
+                
+            </l:VerticalLayout>
+        </content>
+        
+        <!-- Footer with last refresh time -->
+        <footer>
+            <OverflowToolbar>
+                <ToolbarSpacer/>
+                <Text text="{i18n>lastRefresh}: " class="textMuted"/>
+                <Text text="{
+                    path: 'appView>/lastRefresh',
+                    type: 'sap.ui.model.type.DateTime',
+                    formatOptions: { style: 'medium' }
+                }" class="textMuted"/>
+            </OverflowToolbar>
+        </footer>
+        
+    </Page>
+    
+</mvc:View>

@@ -1,0 +1,168 @@
+_schema-version: 3.3.0
+ID: cap_nuke_generar_asientos
+version: 1.0.0
+description: "CAP Application - File Processing with Worker Pattern"
+parameters:
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci
+        - npx cds build --production
+
+modules:
+  # ============================================
+  # API Module - Expone OData services
+  # ============================================
+  - name: cap_nuke_generar_asientos-api
+    type: nodejs
+    path: gen/srv
+    parameters:
+      instances: 1
+      buildpack: nodejs_buildpack
+      memory: 1G
+      disk-quota: 1G
+      command: node node_modules/@sap/cds/bin/cds-serve
+    build-parameters:
+      builder: npm-ci
+    provides:
+      - name: srv-api
+        properties:
+          srv-url: ${default-url}
+    requires:
+      - name: cap_nuke_generar_asientos-auth
+      - name: cap_nuke_generar_asientos-db
+
+  # ============================================
+  # Worker Module - Procesa jobs en background
+  # ============================================
+  - name: cap_nuke_generar_asientos-worker
+    type: nodejs
+    path: gen/srv
+    parameters:
+      instances: 1              # Escalar a 2-3 para más throughput
+      buildpack: nodejs_buildpack
+      memory: 1G
+      disk-quota: 512M
+      command: node srv/worker.js
+      no-route: true            # No expone HTTP endpoints
+      health-check-type: process  # Health check basado en proceso, no HTTP
+    build-parameters:
+      builder: npm-ci
+    requires:
+      - name: cap_nuke_generar_asientos-db
+      # Worker no necesita XSUAA porque no expone endpoints HTTP
+
+  # ============================================
+  # UI Dashboard Module
+  # ============================================
+  - name: cap_nuke_generar_asientos-dashboard
+    type: html5
+    path: app/dashboard
+    build-parameters:
+      build-result: dist
+      builder: custom
+      commands:
+        - npm ci
+        - npm run build
+      supported-platforms: []
+
+  # ============================================
+  # Approuter - Sirve UI y hace proxy al backend
+  # ============================================
+  - name: cap_nuke_generar_asientos-approuter
+    type: approuter.nodejs
+    path: app/router
+    parameters:
+      instances: 1
+      buildpack: nodejs_buildpack
+      memory: 256M
+      disk-quota: 256M
+    build-parameters:
+      builder: npm-ci
+    requires:
+      - name: srv-api
+        group: destinations
+        properties:
+          name: srv-api
+          url: ~{srv-url}
+          forwardAuthToken: true
+      - name: cap_nuke_generar_asientos-auth
+      - name: cap_nuke_generar_asientos-html5-repo-runtime
+    provides:
+      - name: approuter-url
+        properties:
+          app-url: ${default-url}
+
+  # ============================================
+  # HTML5 App Deployer
+  # ============================================
+  - name: cap_nuke_generar_asientos-html5-deployer
+    type: com.sap.application.content
+    path: .
+    requires:
+      - name: cap_nuke_generar_asientos-html5-repo-host
+        parameters:
+          content-target: true
+    build-parameters:
+      build-result: resources
+      requires:
+        - name: cap_nuke_generar_asientos-dashboard
+          artifacts:
+            - dist/*
+          target-path: resources/dashboard/
+
+  # ============================================
+  # DB Deployer - Despliega schema a HANA
+  # ============================================
+  - name: cap_nuke_generar_asientos-db-deployer
+    type: hdb
+    path: gen/db
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 256M
+      disk-quota: 256M
+    requires:
+      - name: cap_nuke_generar_asientos-db
+
+resources:
+  # ============================================
+  # XSUAA - Autenticación
+  # ============================================
+  - name: cap_nuke_generar_asientos-auth
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
+      config:
+        xsappname: cap_nuke_generar_asientos-${space}
+        tenant-mode: dedicated
+
+  # ============================================
+  # HANA HDI Container - Base de datos
+  # ============================================
+  - name: cap_nuke_generar_asientos-db
+    type: com.sap.xs.hdi-container
+    parameters:
+      service: hana
+      service-plan: hdi-shared
+
+  # ============================================
+  # HTML5 App Repository - Runtime
+  # ============================================
+  - name: cap_nuke_generar_asientos-html5-repo-runtime
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-runtime
+
+  # ============================================
+  # HTML5 App Repository - Host
+  # ============================================
+  - name: cap_nuke_generar_asientos-html5-repo-host
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-host

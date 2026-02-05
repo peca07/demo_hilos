@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telecom - Servicios CAP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            width: 80%;
+            margin: 50px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #0033A0;
+        }
+        .endpoints {
+            list-style: none;
+            padding: 0;
+        }
+        .endpoints li {
+            margin: 10px 0;
+            padding: 10px;
+            background: #0033A0;
+            color: white;
+            border-radius: 5px;
+        }
+        .endpoints li a {
+            color: white;
+            text-decoration: none;
+        }
+        .button-container {
+            margin-bottom: 20px;
+        }
+        .button-container button, .service-selector {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #0033A0;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        .button-container button:hover {
+            background-color: #0051cc;
+        }
+        .service-selector {
+            background-color: white;
+            color: #0033A0;
+            border: 2px solid #0033A0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bienvenido a los Servicios CAP de Telecom</h1>
+        
+        <p>Seleccione un servicio:</p>
+        <select id="serviceSelector" class="service-selector">
+            <option value="" disabled selected>Cargando servicios...</option>
+        </select>
+
+        <p>Seleccione una versión de la API:</p>
+        <div class="button-container">
+            <button onclick="loadEndpoints('v4')">V4</button>
+            <button onclick="loadEndpoints('v2')">V2</button>
+        </div>
+
+        <p>Seleccione un endpoint para acceder:</p>
+        <ul class="endpoints" id="endpointList">
+            <li>Cargando endpoints...</li>
+        </ul>
+    </div>
+
+    <script>
+        // Cargar la lista de servicios dinámicamente
+        async function loadServices() {
+            const selector = document.getElementById("serviceSelector");
+            selector.innerHTML = '<option value="" disabled selected>Cargando servicios...</option>';
+            
+            try {
+                const response = await fetch('/api/endpoints');
+                const services = await response.json();
+
+                if (services.length === 0) {
+                    selector.innerHTML = '<option value="" disabled>No hay servicios disponibles</option>';
+                    return;
+                }
+
+                // Limpiar opciones anteriores
+                selector.innerHTML = ""; 
+
+                let servicesAdded = false;
+
+                services.forEach(service => {
+                    // Convertir a kebab-case, eliminar "Service" y evitar guion al final
+                    let serviceName = service.name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+                    serviceName = serviceName.replace('service', '');
+
+                    // Eliminar guion extra al final
+                    serviceName = serviceName.endsWith('-') ? serviceName.slice(0, -1) : serviceName;
+
+                    // Si contiene "db", lo omitimos
+                    if (serviceName.includes("db")) {
+                        return;
+                    }
+
+                    const option = document.createElement("option");
+                    option.value = serviceName;
+                    option.textContent = serviceName;
+                    selector.appendChild(option);
+
+                    servicesAdded = true;
+                });
+
+                if (!servicesAdded) {
+                    selector.innerHTML = '<option value="" disabled>No hay servicios disponibles</option>';
+                }
+
+            } catch (error) {
+                console.error("Error cargando servicios:", error);
+                selector.innerHTML = '<option value="" disabled>Error al cargar servicios</option>';
+            }
+        }
+
+        async function loadEndpoints(version) {
+            const list = document.getElementById("endpointList");
+            list.innerHTML = ""; // Limpiar lista antes de cargar los nuevos datos
+
+            const selector = document.getElementById("serviceSelector");
+            const serviceName = selector.value;
+
+            if (!serviceName) {
+                list.innerHTML = "<li>Seleccione un servicio primero</li>";
+                return;
+            }
+
+            try {
+                let response = await fetch(`/odata/${version}/${serviceName}`);
+                const data = await response.json();
+
+                let items = [];
+
+                if (version === 'v4') {
+                    items = data.value || [];
+                } else if (version === 'v2') {
+                    items = data.d?.EntitySets || [];
+                }
+
+                if (items.length === 0) {
+                    if (data.error?.code === 401) {
+                        list.innerHTML = "<li>⛔ Autorización faltante: Usa Postman, Insomnia o cURL con OAuth 2.0 para obtener acceso.</li>";
+                    } else {
+                        list.innerHTML = "<li>No hay servicios disponibles</li>";
+                    }
+                    return;
+                }
+
+                items.forEach(service => {
+                    const li = document.createElement("li");
+                    const a = document.createElement("a");
+
+                    let serviceUrl = version === 'v2' ? `/odata/${version}/${serviceName}/${service}` : `/odata/${version}/${serviceName}/${service.url}`;
+                    a.href = serviceUrl;
+                    a.textContent = version === 'v2' ? service : service.name || service.url; 
+
+                    li.appendChild(a);
+                    list.appendChild(li);
+                });
+            } catch (error) {
+                console.error("Error cargando endpoints:", error);
+                list.innerHTML = "<li>Error al cargar servicios</li>";
+            }
+        }
+
+        // Cargar la lista de servicios disponibles al inicio
+        loadServices();
+    </script>
+</body>
+</html>

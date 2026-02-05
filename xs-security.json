@@ -1,0 +1,66 @@
+{
+  "xsappname": "cap_nuke_generar_asientos",
+  "tenant-mode": "dedicated",
+  "scopes": [
+    {
+      "name": "$XSAPPNAME.Admin",
+      "description": "Full admin access"
+    },
+    {
+      "name": "$XSAPPNAME.FileProcessor",
+      "description": "Access to file processing service"
+    },
+    {
+      "name": "$XSAPPNAME.NukeService",
+      "description": "Access to Nuke Generar Asientos service"
+    }
+  ],
+  "attributes": [],
+  "role-templates": [
+    {
+      "name": "Admin",
+      "description": "Administrator role",
+      "scope-references": [
+        "$XSAPPNAME.Admin",
+        "$XSAPPNAME.FileProcessor",
+        "$XSAPPNAME.NukeService"
+      ]
+    },
+    {
+      "name": "FileProcessor",
+      "description": "File processing role",
+      "scope-references": [
+        "$XSAPPNAME.FileProcessor"
+      ]
+    },
+    {
+      "name": "NukeUser",
+      "description": "Nuke service user role",
+      "scope-references": [
+        "$XSAPPNAME.NukeService"
+      ]
+    }
+  ],
+  "role-collections": [
+    {
+      "name": "cap_nuke_Admin",
+      "description": "Admin role collection",
+      "role-template-references": [
+        "$XSAPPNAME.Admin"
+      ]
+    },
+    {
+      "name": "cap_nuke_FileProcessor",
+      "description": "File processor role collection",
+      "role-template-references": [
+        "$XSAPPNAME.FileProcessor"
+      ]
+    }
+  ],
+  "oauth2-configuration": {
+    "redirect-uris": [
+      "https://*.cfapps.*.hana.ondemand.com/**",
+      "https://*.hana.ondemand.com/**"
+    ]
+  }
+}

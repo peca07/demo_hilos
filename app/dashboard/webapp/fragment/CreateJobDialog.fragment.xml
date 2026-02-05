@@ -1,0 +1,71 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:f="sap.ui.layout.form">
+    
+    <Dialog
+        id="createJobDialog"
+        title="{i18n>createNewJob}"
+        type="Message"
+        contentWidth="500px">
+        
+        <content>
+            <VBox class="sapUiSmallMargin">
+                <f:SimpleForm
+                    editable="true"
+                    layout="ResponsiveGridLayout"
+                    labelSpanXL="4"
+                    labelSpanL="4"
+                    labelSpanM="4"
+                    labelSpanS="12"
+                    adjustLabelSpan="false"
+                    emptySpanXL="0"
+                    emptySpanL="0"
+                    emptySpanM="0"
+                    emptySpanS="0"
+                    columnsXL="1"
+                    columnsL="1"
+                    columnsM="1"
+                    singleContainerFullSize="false">
+                    
+                    <f:content>
+                        <Label text="{i18n>fileName}" required="true"/>
+                        <Input
+                            id="fileNameInput"
+                            value="{viewModel>/newJob/fileName}"
+                            placeholder="{i18n>fileNamePlaceholder}"
+                            required="true"/>
+                        
+                        <Label text="{i18n>filePath}" required="true"/>
+                        <Input
+                            id="filePathInput"
+                            value="{viewModel>/newJob/filePath}"
+                            placeholder="{i18n>filePathPlaceholder}"
+                            required="true"/>
+                    </f:content>
+                </f:SimpleForm>
+                
+                <MessageStrip
+                    text="{i18n>filePathHint}"
+                    type="Information"
+                    showIcon="true"
+                    class="sapUiSmallMarginTop"/>
+            </VBox>
+        </content>
+        
+        <beginButton>
+            <Button
+                text="{i18n>createAndStart}"
+                type="Emphasized"
+                press="onCreateJobSubmit"/>
+        </beginButton>
+        
+        <endButton>
+            <Button
+                text="{i18n>cancel}"
+                press="onCreateJobDialogClose"/>
+        </endButton>
+        
+    </Dialog>
+    
+</core:FragmentDefinition>

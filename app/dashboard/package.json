@@ -1,0 +1,13 @@
+{
+  "name": "fileproc-dashboard",
+  "version": "1.0.0",
+  "description": "File Processing Dashboard - UI5 Freestyle",
+  "private": true,
+  "devDependencies": {
+    "@ui5/cli": "^3.0.0"
+  },
+  "scripts": {
+    "start": "ui5 serve --open index.html",
+    "build": "ui5 build --all"
+  }
+}

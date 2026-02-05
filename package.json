@@ -1,0 +1,42 @@
+{
+  "name": "cap_nuke_generar_asientos",
+  "version": "1.0.0",
+  "description": "CAP Application - Nuke Generar Asientos & File Processing with Worker Pattern",
+  "dependencies": {
+    "@cap-js-community/odata-v2-adapter": "^1.15.8",
+    "@cap-js/hana": "^2",
+    "@sap/cds": "^9",
+    "@sap/xssec": "^4",
+    "express": "^4"
+  },
+  "devDependencies": {
+    "@sap/cds-dk": "^9"
+  },
+  "scripts": {
+    "start": "cds-serve",
+    "watch": "cds watch",
+    "watch:api": "cds watch",
+    "watch:worker": "node srv/worker.js",
+    "start:api": "cds-serve",
+    "start:worker": "node srv/worker.js",
+    "build": "cds build --production",
+    "build:mtar": "mbt build -t mta_archives",
+    "deploy:cf": "cf deploy mta_archives/cap_nuke_generar_asientos_1.0.0.mtar",
+    "undeploy:cf": "cf undeploy cap_nuke_generar_asientos --delete-services --delete-service-keys"
+  },
+  "private": true,
+  "cds": {
+    "requires": {
+      "db": {
+        "kind": "hana"
+      },
+      "auth": {
+        "[development]": "dummy",
+        "[production]": "xsuaa"
+      }
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

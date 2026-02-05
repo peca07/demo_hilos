@@ -1,0 +1,12 @@
+{
+  "name": "cap_nuke_generar_asientos-approuter",
+  "version": "1.0.0",
+  "description": "Approuter for File Processing Dashboard",
+  "private": true,
+  "dependencies": {
+    "@sap/approuter": "^14"
+  },
+  "scripts": {
+    "start": "node node_modules/@sap/approuter/approuter.js"
+  }
+}
