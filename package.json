@@ -31,7 +31,17 @@
         "kind": "hana"
       },
       "auth": {
-        "[development]": "dummy",
+        "[development]": {
+          "kind": "dummy",
+          "users": {
+            "alice": {
+              "roles": ["FileProcessor", "NukeService"]
+            },
+            "bob": {
+              "roles": ["FileProcessor"]
+            }
+          }
+        },
         "[production]": "xsuaa"
       }
     }

@@ -10,7 +10,7 @@
         },
         "dataSources": {
             "FileProcService": {
-                "uri": "/odata/v4/FileProcService/",
+                "uri": "/odata/v4/file-proc/",
                 "type": "OData",
                 "settings": {
                     "odataVersion": "4.0"

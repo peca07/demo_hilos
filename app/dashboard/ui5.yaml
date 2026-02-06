@@ -16,7 +16,7 @@ server:
     - name: fiori-tools-proxy
       afterMiddleware: compression
       configuration:
-        ignoreCertError: false
+        ignoreCertError: true
         ui5:
           path:
             - /resources
@@ -24,4 +24,5 @@ server:
           url: https://ui5.sap.com
         backend:
           - path: /odata
-            url: http://localhost:4004
+            url: https://port4004-workspaces-ws-vv54p.us10.applicationstudio.cloud.sap
+            authenticationType: none
