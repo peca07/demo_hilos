@@ -33,6 +33,7 @@ modules:
     requires:
       - name: cap_nuke_generar_asientos-auth
       - name: cap_nuke_generar_asientos-db
+      - name: cap_nuke_generar_asientos-destination
 
   # ============================================
   # Worker Module - Procesa jobs en background
@@ -166,3 +167,12 @@ resources:
     parameters:
       service: html5-apps-repo
       service-plan: app-host
+
+  # ============================================
+  # Destination Service - External APIs (Graph)
+  # ============================================
+  - name: cap_nuke_generar_asientos-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite

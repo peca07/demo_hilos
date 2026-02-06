@@ -26,7 +26,12 @@ sap.ui.define([
                 newJob: {
                     fileName: "",
                     filePath: ""
-                }
+                },
+                // SharePoint
+                sharePointFiles: [],
+                sharePointExpanded: true,
+                sharePointLoading: false,
+                selectedSharePointFile: null
             });
             this.getView().setModel(oViewModel, "viewModel");
             
@@ -35,6 +40,8 @@ sap.ui.define([
             this._waitForModel().then(function() {
                 that._startAutoRefresh();
                 that._loadStats();
+                // Load SharePoint files on init
+                that._loadSharePointFiles();
             }).catch(function(oError) {
                 console.error("Error initializing model:", oError);
             });
@@ -489,6 +496,191 @@ sap.ui.define([
         formatAttempts: function(iAttempts) {
             if (!iAttempts) return "";
             return "Intento " + iAttempts;
+        },
+        
+        // ==========================================
+        // SharePoint Integration
+        // ==========================================
+        
+        onSharePointFilesPress: function() {
+            // Toggle SharePoint panel expansion
+            var oViewModel = this.getView().getModel("viewModel");
+            var bExpanded = oViewModel.getProperty("/sharePointExpanded");
+            oViewModel.setProperty("/sharePointExpanded", !bExpanded);
+            
+            // Load files if expanding and empty
+            if (!bExpanded) {
+                var aFiles = oViewModel.getProperty("/sharePointFiles");
+                if (!aFiles || aFiles.length === 0) {
+                    this._loadSharePointFiles();
+                }
+            }
+        },
+        
+        onRefreshSharePoint: function() {
+            this._loadSharePointFiles();
+            MessageToast.show(this._getText("refreshed"));
+        },
+        
+        _loadSharePointFiles: function() {
+            var that = this;
+            var oViewModel = this.getView().getModel("viewModel");
+            var oSharePointModel = this.getOwnerComponent().getModel("sharepoint");
+            
+            if (!oSharePointModel) {
+                console.warn("SharePoint model not available");
+                return;
+            }
+            
+            oViewModel.setProperty("/sharePointLoading", true);
+            
+            // Call listFiles function
+            var oOperation = oSharePointModel.bindContext("/listFiles(...)");
+            
+            oOperation.execute().then(function() {
+                var oResult = oOperation.getBoundContext().getObject();
+                
+                // Handle the result - it could be an array or have a value property
+                var aFiles = [];
+                if (Array.isArray(oResult)) {
+                    aFiles = oResult;
+                } else if (oResult && oResult.value) {
+                    aFiles = oResult.value;
+                } else if (oResult) {
+                    // Single result or object with file properties
+                    aFiles = [oResult];
+                }
+                
+                console.log("[SharePoint] Loaded files:", aFiles.length);
+                oViewModel.setProperty("/sharePointFiles", aFiles);
+                oViewModel.setProperty("/sharePointLoading", false);
+                
+            }).catch(function(oError) {
+                console.error("[SharePoint] Error loading files:", oError);
+                oViewModel.setProperty("/sharePointLoading", false);
+                oViewModel.setProperty("/sharePointFiles", []);
+                MessageBox.error(that._getText("sharePointLoadError") + ": " + (oError.message || oError));
+            });
+        },
+        
+        onSharePointFileSelect: function(oEvent) {
+            var oItem = oEvent.getParameter("listItem");
+            var oContext = oItem.getBindingContext("viewModel");
+            var oFile = oContext.getObject();
+            
+            var oViewModel = this.getView().getModel("viewModel");
+            oViewModel.setProperty("/selectedSharePointFile", oFile);
+            
+            console.log("[SharePoint] Selected file:", oFile.name);
+        },
+        
+        onProcessSharePointFile: function(oEvent) {
+            var that = this;
+            var oButton = oEvent.getSource();
+            var oContext = oButton.getBindingContext("viewModel");
+            var oFile = oContext.getObject();
+            
+            if (!oFile || !oFile.itemId) {
+                MessageBox.error("No file selected");
+                return;
+            }
+            
+            // Confirm processing
+            MessageBox.confirm(
+                "¿Deseas crear un job de procesamiento para el archivo '" + oFile.name + "'?",
+                {
+                    title: "Procesar Archivo de SharePoint",
+                    onClose: function(sAction) {
+                        if (sAction === MessageBox.Action.OK) {
+                            that._createJobFromSharePoint(oFile);
+                        }
+                    }
+                }
+            );
+        },
+        
+        _createJobFromSharePoint: function(oFile) {
+            var that = this;
+            var oSharePointModel = this.getOwnerComponent().getModel("sharepoint");
+            var oAppViewModel = this.getOwnerComponent().getModel("appView");
+            
+            oAppViewModel.setProperty("/busy", true);
+            MessageToast.show(this._getText("sharePointFileProcessing"));
+            
+            // Call createJobFromSharePoint action
+            var oOperation = oSharePointModel.bindContext("/createJobFromSharePoint(...)");
+            oOperation.setParameter("itemId", oFile.itemId);
+            oOperation.setParameter("fileName", oFile.name);
+            
+            oOperation.execute().then(function() {
+                var sJobId = oOperation.getBoundContext().getObject();
+                
+                oAppViewModel.setProperty("/busy", false);
+                MessageToast.show(that._getText("sharePointJobCreated"));
+                
+                // Refresh jobs table
+                that._doRefresh();
+                
+                console.log("[SharePoint] Job created:", sJobId);
+                
+            }).catch(function(oError) {
+                oAppViewModel.setProperty("/busy", false);
+                console.error("[SharePoint] Error creating job:", oError);
+                MessageBox.error(that._getText("sharePointJobError") + ": " + (oError.message || oError));
+            });
+        },
+        
+        onDownloadSharePointFile: function(oEvent) {
+            var that = this;
+            var oButton = oEvent.getSource();
+            var oContext = oButton.getBindingContext("viewModel");
+            var oFile = oContext.getObject();
+            
+            if (!oFile || !oFile.itemId) {
+                MessageBox.error("No file selected");
+                return;
+            }
+            
+            var oSharePointModel = this.getOwnerComponent().getModel("sharepoint");
+            
+            // Get download URL
+            var oOperation = oSharePointModel.bindContext("/getDownloadUrl(...)");
+            oOperation.setParameter("itemId", oFile.itemId);
+            
+            oOperation.execute().then(function() {
+                var oResult = oOperation.getBoundContext().getObject();
+                
+                if (oResult && oResult.url) {
+                    // Open download URL in new tab
+                    window.open(oResult.url, "_blank");
+                } else {
+                    throw new Error("No download URL returned");
+                }
+                
+            }).catch(function(oError) {
+                console.error("[SharePoint] Download error:", oError);
+                MessageBox.error(that._getText("sharePointDownloadError") + ": " + (oError.message || oError));
+            });
+        },
+        
+        formatFileIcon: function(sMimeType) {
+            if (!sMimeType) return "sap-icon://document";
+            
+            if (sMimeType.indexOf("text") !== -1) {
+                return "sap-icon://document-text";
+            } else if (sMimeType.indexOf("excel") !== -1 || sMimeType.indexOf("spreadsheet") !== -1) {
+                return "sap-icon://excel-attachment";
+            } else if (sMimeType.indexOf("word") !== -1) {
+                return "sap-icon://doc-attachment";
+            } else if (sMimeType.indexOf("pdf") !== -1) {
+                return "sap-icon://pdf-attachment";
+            } else if (sMimeType.indexOf("image") !== -1) {
+                return "sap-icon://picture";
+            } else if (sMimeType.indexOf("zip") !== -1 || sMimeType.indexOf("compressed") !== -1) {
+                return "sap-icon://attachment-zip-file";
+            }
+            
+            return "sap-icon://document";
         },
         
         // ==========================================

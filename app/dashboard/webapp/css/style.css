@@ -187,3 +187,35 @@
     font-weight: 700;
     font-size: 2rem !important;
 }
+
+/* SharePoint Panel */
+.sharePointPanel {
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    border-left: 4px solid #0078d4; /* Microsoft Blue */
+}
+
+.sharePointPanel .sapMPanelHdr {
+    font-weight: 600;
+    color: #0078d4;
+}
+
+/* SharePoint Table */
+.sharePointPanel .sapMListTblRow:hover {
+    background-color: rgba(0, 120, 212, 0.08) !important;
+}
+
+/* SharePoint File Icons */
+.sharePointPanel .sapUiIcon {
+    color: #0078d4;
+}
+
+/* SharePoint Action Buttons */
+.sharePointPanel .sapMBtnAccept {
+    background-color: #107c10;
+    border-color: #107c10;
+}
+
+.sharePointPanel .sapMBtnAccept:hover {
+    background-color: #0b5c0b;
+}

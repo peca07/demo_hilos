@@ -51,6 +51,14 @@
                     icon="sap-icon://add"
                     type="Emphasized"
                     press="onCreateJobPress"/>
+                    
+                <!-- SharePoint Files Button -->
+                <Button 
+                    id="sharePointBtn"
+                    text="{i18n>sharePointFiles}"
+                    icon="sap-icon://cloud"
+                    type="Accept"
+                    press="onSharePointFilesPress"/>
             </OverflowToolbar>
         </customHeader>
         
@@ -119,6 +127,125 @@
                         </TileContent>
                     </GenericTile>
                 </l:HorizontalLayout>
+                
+                <!-- SharePoint Files Panel -->
+                <Panel 
+                    id="sharePointPanel"
+                    headerText="{i18n>sharePointFiles}"
+                    expandable="true"
+                    expanded="{viewModel>/sharePointExpanded}"
+                    class="sapUiSmallMarginTop sharePointPanel">
+                    
+                    <headerToolbar>
+                        <OverflowToolbar>
+                            <Title text="{i18n>sharePointFiles}" level="H5"/>
+                            <ToolbarSpacer/>
+                            <Button 
+                                icon="sap-icon://refresh"
+                                tooltip="{i18n>refreshSharePoint}"
+                                press="onRefreshSharePoint"/>
+                        </OverflowToolbar>
+                    </headerToolbar>
+                    
+                    <Table
+                        id="sharePointTable"
+                        items="{viewModel>/sharePointFiles}"
+                        growing="true"
+                        growingThreshold="10"
+                        alternateRowColors="true"
+                        mode="SingleSelectMaster"
+                        selectionChange="onSharePointFileSelect">
+                        
+                        <columns>
+                            <Column width="5%">
+                                <Text text=""/>
+                            </Column>
+                            <Column width="40%">
+                                <Text text="{i18n>fileName}"/>
+                            </Column>
+                            <Column width="15%">
+                                <Text text="{i18n>fileSize}"/>
+                            </Column>
+                            <Column width="15%">
+                                <Text text="{i18n>fileType}"/>
+                            </Column>
+                            <Column width="15%">
+                                <Text text="{i18n>modified}"/>
+                            </Column>
+                            <Column width="10%">
+                                <Text text="{i18n>actions}"/>
+                            </Column>
+                        </columns>
+                        
+                        <items>
+                            <ColumnListItem type="Active">
+                                <cells>
+                                    <!-- Icon -->
+                                    <core:Icon 
+                                        src="{
+                                            path: 'viewModel>mimeType',
+                                            formatter: '.formatFileIcon'
+                                        }"
+                                        size="1.5rem"
+                                        color="#0854a0"/>
+                                    
+                                    <!-- File Name -->
+                                    <VBox>
+                                        <Link 
+                                            text="{viewModel>name}" 
+                                            href="{viewModel>webUrl}"
+                                            target="_blank"
+                                            class="sapMTextBold"/>
+                                    </VBox>
+                                    
+                                    <!-- Size -->
+                                    <Text text="{
+                                        path: 'viewModel>size',
+                                        formatter: '.formatBytes'
+                                    }"/>
+                                    
+                                    <!-- Type -->
+                                    <Text text="{viewModel>mimeType}"/>
+                                    
+                                    <!-- Modified -->
+                                    <Text text="{
+                                        path: 'viewModel>modifiedAt',
+                                        type: 'sap.ui.model.type.DateTime',
+                                        formatOptions: { style: 'short' }
+                                    }"/>
+                                    
+                                    <!-- Actions -->
+                                    <HBox>
+                                        <Button 
+                                            icon="sap-icon://process"
+                                            tooltip="{i18n>processFile}"
+                                            type="Accept"
+                                            press="onProcessSharePointFile"/>
+                                        <Button 
+                                            icon="sap-icon://download"
+                                            tooltip="{i18n>downloadFile}"
+                                            press="onDownloadSharePointFile"
+                                            class="sapUiTinyMarginBegin"/>
+                                    </HBox>
+                                </cells>
+                            </ColumnListItem>
+                        </items>
+                        
+                        <noData>
+                            <IllustratedMessage
+                                illustrationType="sapIllus-EmptyList"
+                                title="{i18n>noSharePointFiles}"
+                                description="{i18n>noSharePointFilesDesc}">
+                                <additionalContent>
+                                    <Button 
+                                        text="{i18n>loadSharePointFiles}" 
+                                        press="onRefreshSharePoint"
+                                        type="Emphasized"/>
+                                </additionalContent>
+                            </IllustratedMessage>
+                        </noData>
+                    </Table>
+                </Panel>
                 
                 <!-- Jobs Table -->
                 <Panel 

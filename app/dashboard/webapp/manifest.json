@@ -15,6 +15,13 @@
                 "settings": {
                     "odataVersion": "4.0"
                 }
+            },
+            "SharePointService": {
+                "uri": "/odata/v4/sharepoint/",
+                "type": "OData",
+                "settings": {
+                    "odataVersion": "4.0"
+                }
             }
         }
     },
@@ -51,6 +58,16 @@
                     "operationMode": "Server",
                     "autoExpandSelect": true,
                     "earlyRequests": true
+                }
+            },
+            "sharepoint": {
+                "dataSource": "SharePointService",
+                "type": "sap.ui.model.odata.v4.ODataModel",
+                "settings": {
+                    "synchronizationMode": "None",
+                    "operationMode": "Server",
+                    "autoExpandSelect": true,
+                    "earlyRequests": false
                 }
             },
             "i18n": {
