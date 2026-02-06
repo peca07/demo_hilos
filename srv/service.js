@@ -104,5 +104,70 @@ module.exports = srv => {
             const updatedJobs = await tx.read('UploadJobs').where({ ID: jobId });
             return updatedJobs[0];
         });
+
+        /**
+         * deleteJob: Elimina un job específico y sus registros asociados
+         */
+        srv.on('deleteJob', async (req) => {
+            const { jobId } = req.data;
+            
+            const tx = srv.tx(req);
+            
+            // Primero eliminar registros asociados
+            await tx.delete('StgRecords').where({ job_ID: jobId });
+            
+            // Luego eliminar el job
+            const result = await tx.delete('UploadJobs').where({ ID: jobId });
+            
+            console.log(`[API] Job ${jobId} eliminado con sus registros`);
+            return { deleted: result || 1 };
+        });
+
+        /**
+         * clearCompletedJobs: Elimina todos los jobs completados (DONE) y sus registros
+         */
+        srv.on('clearCompletedJobs', async (req) => {
+            const tx = srv.tx(req);
+            
+            // Obtener IDs de jobs completados
+            const completedJobs = await tx.read('UploadJobs').where({ status: 'DONE' });
+            
+            if (!completedJobs || completedJobs.length === 0) {
+                return { deleted: 0 };
+            }
+            
+            const jobIds = completedJobs.map(j => j.ID);
+            
+            // Eliminar registros asociados
+            for (const jobId of jobIds) {
+                await tx.delete('StgRecords').where({ job_ID: jobId });
+            }
+            
+            // Eliminar jobs
+            await tx.delete('UploadJobs').where({ status: 'DONE' });
+            
+            console.log(`[API] ${jobIds.length} jobs completados eliminados`);
+            return { deleted: jobIds.length };
+        });
+
+        /**
+         * clearAllJobs: Elimina TODOS los jobs y sus registros (usar con precaución)
+         */
+        srv.on('clearAllJobs', async (req) => {
+            const tx = srv.tx(req);
+            
+            // Contar jobs antes de eliminar
+            const allJobs = await tx.read('UploadJobs');
+            const count = allJobs ? allJobs.length : 0;
+            
+            // Eliminar todos los registros
+            await tx.delete('StgRecords');
+            
+            // Eliminar todos los jobs
+            await tx.delete('UploadJobs');
+            
+            console.log(`[API] ${count} jobs eliminados (todos)`);
+            return { deleted: count };
+        });
     }
 }

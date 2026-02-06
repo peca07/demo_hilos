@@ -35,6 +35,14 @@
                     icon="sap-icon://refresh"
                     tooltip="{i18n>refresh}"
                     press="onRefresh"/>
+                
+                <!-- Clear Jobs Button -->
+                <Button 
+                    id="clearJobsBtn"
+                    text="{i18n>clearJobs}"
+                    icon="sap-icon://delete"
+                    type="Reject"
+                    press="onClearJobsPress"/>
                     
                 <!-- Create Job Button -->
                 <Button 

@@ -213,16 +213,23 @@ process.on('SIGINT', () => {
 
 // Iniciar el worker
 console.log(`[Worker] Iniciando CDS...`);
-cds.on('served', () => {
-    // CDS está listo, iniciar el loop
-    workerLoop().catch(err => {
+
+// Bootstrap CDS y conectar a la base de datos
+(async () => {
+    try {
+        // Cargar y compilar el modelo CDS
+        const csn = await cds.load('srv/service.cds');
+        cds.model = cds.compile.for.nodejs(csn);
+        console.log(`[Worker] Modelo CDS cargado y compilado`);
+        
+        // Conectar a la base de datos
+        await cds.connect.to('db');
+        console.log(`[Worker] Conectado a la base de datos`);
+        
+        // Iniciar el loop del worker
+        await workerLoop();
+    } catch (err) {
         console.error('[Worker] Error fatal:', err);
         process.exit(1);
-    });
-});
-
-// Bootstrap CDS sin servidor HTTP
-cds.serve('all').catch(err => {
-    console.error('[Worker] Error iniciando CDS:', err);
-    process.exit(1);
-});
+    }
+})();

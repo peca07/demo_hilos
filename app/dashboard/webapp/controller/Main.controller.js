@@ -30,11 +30,52 @@ sap.ui.define([
             });
             this.getView().setModel(oViewModel, "viewModel");
             
-            // Start auto-refresh
-            this._startAutoRefresh();
-            
-            // Load initial stats
-            this._loadStats();
+            // Wait for the OData model to be ready before loading data
+            var that = this;
+            this._waitForModel().then(function() {
+                that._startAutoRefresh();
+                that._loadStats();
+            }).catch(function(oError) {
+                console.error("Error initializing model:", oError);
+            });
+        },
+        
+        _waitForModel: function() {
+            var that = this;
+            return new Promise(function(resolve, reject) {
+                var oModel = that.getOwnerComponent().getModel();
+                
+                if (oModel) {
+                    // Model exists, wait for metadata to load
+                    oModel.getMetaModel().requestObject("/").then(function() {
+                        resolve();
+                    }).catch(function(oError) {
+                        // Metadata failed but model exists, try anyway
+                        console.warn("Metadata request failed, trying anyway:", oError);
+                        resolve();
+                    });
+                } else {
+                    // Model not ready yet, poll for it
+                    var iAttempts = 0;
+                    var iMaxAttempts = 20;
+                    var fnCheckModel = function() {
+                        iAttempts++;
+                        var oModel = that.getOwnerComponent().getModel();
+                        if (oModel) {
+                            oModel.getMetaModel().requestObject("/").then(function() {
+                                resolve();
+                            }).catch(function() {
+                                resolve();
+                            });
+                        } else if (iAttempts < iMaxAttempts) {
+                            setTimeout(fnCheckModel, 250);
+                        } else {
+                            reject(new Error("Model not available after " + iMaxAttempts + " attempts"));
+                        }
+                    };
+                    setTimeout(fnCheckModel, 250);
+                }
+            });
         },
         
         onExit: function() {
@@ -49,11 +90,18 @@ sap.ui.define([
             var that = this;
             var oAppViewModel = this.getOwnerComponent().getModel("appView");
             
+            if (!oAppViewModel) {
+                console.warn("AppView model not available, skipping auto-refresh setup");
+                return;
+            }
+            
+            var iInterval = oAppViewModel.getProperty("/refreshInterval") || 5000;
+            
             this._refreshTimer = setInterval(function() {
-                if (oAppViewModel.getProperty("/autoRefresh")) {
+                if (oAppViewModel && oAppViewModel.getProperty("/autoRefresh")) {
                     that._doRefresh();
                 }
-            }, oAppViewModel.getProperty("/refreshInterval"));
+            }, iInterval);
         },
         
         _stopAutoRefresh: function() {
@@ -81,7 +129,10 @@ sap.ui.define([
             // Refresh the table binding
             var oTable = this.byId("jobsTable");
             if (oTable) {
-                oTable.getBinding("items").refresh();
+                var oBinding = oTable.getBinding("items");
+                if (oBinding) {
+                    oBinding.refresh();
+                }
             }
             
             // Update stats
@@ -89,7 +140,9 @@ sap.ui.define([
             
             // Update last refresh time
             var oAppViewModel = this.getOwnerComponent().getModel("appView");
-            oAppViewModel.setProperty("/lastRefresh", new Date());
+            if (oAppViewModel) {
+                oAppViewModel.setProperty("/lastRefresh", new Date());
+            }
         },
         
         // ==========================================
@@ -100,6 +153,12 @@ sap.ui.define([
             var that = this;
             var oModel = this.getView().getModel();
             var oViewModel = this.getView().getModel("viewModel");
+            
+            // Check if model is available
+            if (!oModel) {
+                console.warn("OData model not available yet, skipping stats load");
+                return;
+            }
             
             // Count jobs by status using OData
             var oListBinding = oModel.bindList("/UploadJobs", null, null, null, {
@@ -230,6 +289,78 @@ sap.ui.define([
         },
         
         // ==========================================
+        // Clear Jobs
+        // ==========================================
+        
+        onClearJobsPress: function() {
+            var that = this;
+            
+            MessageBox.warning(this._getText("clearJobsConfirm"), {
+                title: this._getText("clearJobsTitle"),
+                actions: [
+                    this._getText("deleteAllCompleted"),
+                    this._getText("deleteAll"),
+                    MessageBox.Action.CANCEL
+                ],
+                emphasizedAction: this._getText("deleteAllCompleted"),
+                onClose: function(sAction) {
+                    if (sAction === that._getText("deleteAllCompleted")) {
+                        that._clearCompletedJobs();
+                    } else if (sAction === that._getText("deleteAll")) {
+                        // Confirmar eliminación total
+                        MessageBox.confirm(that._getText("clearJobsWarning"), {
+                            onClose: function(sConfirmAction) {
+                                if (sConfirmAction === MessageBox.Action.OK) {
+                                    that._clearAllJobs();
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+        },
+        
+        _clearCompletedJobs: function() {
+            var that = this;
+            var oModel = this.getView().getModel();
+            var oAppViewModel = this.getOwnerComponent().getModel("appView");
+            
+            oAppViewModel.setProperty("/busy", true);
+            
+            var oOperation = oModel.bindContext("/clearCompletedJobs(...)");
+            oOperation.execute().then(function() {
+                var oResult = oOperation.getBoundContext().getObject();
+                oAppViewModel.setProperty("/busy", false);
+                that._doRefresh();
+                MessageToast.show(that._getText("jobsCleared") + " (" + (oResult.deleted || 0) + ")");
+            }).catch(function(oError) {
+                oAppViewModel.setProperty("/busy", false);
+                console.error("Error clearing jobs:", oError);
+                MessageBox.error(that._getText("jobsClearedError"));
+            });
+        },
+        
+        _clearAllJobs: function() {
+            var that = this;
+            var oModel = this.getView().getModel();
+            var oAppViewModel = this.getOwnerComponent().getModel("appView");
+            
+            oAppViewModel.setProperty("/busy", true);
+            
+            var oOperation = oModel.bindContext("/clearAllJobs(...)");
+            oOperation.execute().then(function() {
+                var oResult = oOperation.getBoundContext().getObject();
+                oAppViewModel.setProperty("/busy", false);
+                that._doRefresh();
+                MessageToast.show(that._getText("jobsCleared") + " (" + (oResult.deleted || 0) + ")");
+            }).catch(function(oError) {
+                oAppViewModel.setProperty("/busy", false);
+                console.error("Error clearing all jobs:", oError);
+                MessageBox.error(that._getText("jobsClearedError"));
+            });
+        },
+        
+        // ==========================================
         // Search
         // ==========================================
         
@@ -301,14 +432,26 @@ sap.ui.define([
         },
         
         formatProgress: function(iProcessed, iTotal) {
-            if (!iTotal || iTotal === 0) return 0;
-            return Math.round((iProcessed / iTotal) * 100);
+            // Handle null, undefined, NaN, and zero values
+            var processed = parseInt(iProcessed, 10) || 0;
+            var total = parseInt(iTotal, 10) || 0;
+            
+            if (total === 0) return 0;
+            
+            var percent = Math.round((processed / total) * 100);
+            return isNaN(percent) ? 0 : Math.min(percent, 100);
         },
         
         formatProgressText: function(iProcessed, iTotal) {
-            if (!iTotal || iTotal === 0) return "0%";
-            var iPercent = Math.round((iProcessed / iTotal) * 100);
-            return iPercent + "%";
+            // Handle null, undefined, NaN, and zero values
+            var processed = parseInt(iProcessed, 10) || 0;
+            var total = parseInt(iTotal, 10) || 0;
+            
+            if (total === 0) return "0%";
+            
+            var percent = Math.round((processed / total) * 100);
+            if (isNaN(percent)) return "0%";
+            return Math.min(percent, 100) + "%";
         },
         
         formatProgressState: function(sStatus) {

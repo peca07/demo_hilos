@@ -15,4 +15,9 @@ service FileProcService {
   
   action createJob(fileName: String, filePath: String) returns UploadJobs;
   action startProcessing(jobId: UUID) returns UploadJobs;
+  
+  // Acciones de limpieza
+  action deleteJob(jobId: UUID) returns { deleted: Integer };
+  action clearCompletedJobs() returns { deleted: Integer };
+  action clearAllJobs() returns { deleted: Integer };
 }
