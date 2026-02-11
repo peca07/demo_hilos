@@ -1,35 +1,33 @@
 using teco from '../db/tablas';
 using fileproc from '../db/schema';
 
-// Servicio para generar asientos
+// Servicio para generar asientos (futuro)
 @requires: 'NukeService'
-service NukeGenerarAsientosService {   
+service NukeGenerarAsientosService {
 
 }
 
 // Servicio para procesamiento de archivos
 @requires: 'FileProcessor'
 service FileProcService {
-  entity UploadJobs as projection on fileproc.UploadJob;
-  entity StgRecords as projection on fileproc.StgRecord;
-  
-  action createJob(fileName: String, filePath: String) returns UploadJobs;
-  action startProcessing(jobId: UUID) returns UploadJobs;
-  
-  // Acciones de limpieza
+  entity UploadJobs       as projection on fileproc.UploadJob;
+  entity ValidationErrors as projection on fileproc.ValidationError;
+
+  // Cancelar job en progreso
+  action cancelJob(jobId: UUID) returns UploadJobs;
+
+  // Limpieza
   action deleteJob(jobId: UUID) returns { deleted: Integer };
   action clearCompletedJobs() returns { deleted: Integer };
   action clearAllJobs() returns { deleted: Integer };
 }
 
-// ===========================================
-// SharePoint Files Service - Microsoft Graph
-// ===========================================
+// SharePoint Files Service
 @requires: 'FileProcessor'
 @path: 'sharepoint'
+@impl: './sharepoint-service.js'
 service SharePointService {
-  
-  // Tipo para los archivos de SharePoint
+
   type SharePointFile {
     itemId     : String;
     name       : String;
@@ -40,18 +38,10 @@ service SharePointService {
     modifiedAt : Timestamp;
   }
 
-  // Listar archivos del folder configurado
   function listFiles() returns array of SharePointFile;
-  
-  // Listar archivos de un folder específico
   function listFilesInFolder(folderId: String) returns array of SharePointFile;
-  
-  // Descargar archivo (retorna stream binario)
-  action downloadFile(itemId: String) returns LargeBinary;
-  
-  // Obtener URL de descarga directa (para UI - válido por ~1 hora)
   function getDownloadUrl(itemId: String) returns { url: String; expiresAt: Timestamp };
-  
-  // Crear job desde archivo de SharePoint
+
+  // Crear job desde SharePoint (UI llama esta action)
   action createJobFromSharePoint(itemId: String, fileName: String) returns String;
 }

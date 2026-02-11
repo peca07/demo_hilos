@@ -3,60 +3,62 @@ using { managed, cuid } from '@sap/cds/common';
 
 /**
  * Job de procesamiento de archivos
- * Lifecycle: NEW → READY → PROCESSING → DONE/ERROR/CANCELED
+ * Lifecycle: NEW → QUEUED → PROCESSING → DONE/ERROR/CANCELLED
  */
 entity UploadJob : cuid, managed {
-  // Información del archivo
+  // Archivo
   fileName          : String(255);
-  filePath          : String(1000);      // Path local (POC) o storageRef futuro
+  sharePointItemId  : String(500);
   totalBytes        : Integer64;
-  
-  // Estado del job
-  status            : String(20) default 'NEW';  // NEW, READY, PROCESSING, DONE, ERROR, CANCELED
+
+  // Estado
+  status            : String(20) default 'NEW';
   errorMessage      : LargeString;
-  
-  // Progreso de procesamiento
-  processedBytes    : Integer64 default 0;
+
+  // Progreso
+  totalLines        : Integer64 default 0;
   processedLines    : Integer64 default 0;
-  
-  // Worker claiming (para concurrencia)
-  claimedAt         : Timestamp;          // Cuándo el worker tomó el job
-  claimedBy         : String(100);        // ID del worker (ej: "worker-0")
-  heartbeatAt       : Timestamp;          // Última señal de vida del worker
-  attemptCount      : Integer default 0;  // Intentos de procesamiento
-  maxAttempts       : Integer default 3;  // Máximo de reintentos
-  leaseSeconds      : Integer default 1800; // 30 min lease por defecto
-  requestedAt       : Timestamp;          // Cuándo se llamó startProcessing
-  
-  // Tiempos reales de procesamiento
-  startedAt         : Timestamp;          // Inicio real del procesamiento
-  finishedAt        : Timestamp;          // Fin del procesamiento
-  totalDurationMs   : Integer64;          // Duración total en ms
-  totalDurationText : String(50);         // "3min 25seg" - legible
-  
-  // Métricas de batch
-  batchSize         : Integer default 10000;
-  lastBatchMs       : Integer;
-  avgBatchMs        : Integer;
-  avgBatchText      : String(50);         // "1.2seg" - legible
-  batchesProcessed  : Integer default 0;
-  
+  processedBytes    : Integer64 default 0;
+  errorLines        : Integer64 default 0;
+
+  // Fragmentación (Worker Threads internos)
+  numFragments      : Integer default 0;
+  fragmentsDone     : Integer default 0;
+  numWorkerThreads  : Integer default 2;
+
+  // Tiempos
+  startedAt         : Timestamp;
+  finishedAt        : Timestamp;
+  heartbeatAt       : Timestamp;
+  cancelRequested   : Boolean default false;
+
+  totalDurationMs   : Integer64;
+  totalDurationText : String(50);
+
   // Throughput
-  linesPerSecond    : Integer;            // Rendimiento: líneas/seg
-  bytesPerSecond    : Integer64;          // Rendimiento: bytes/seg
+  linesPerSecond    : Integer;
+  bytesPerSecond    : Integer64;
+
+  // Resultado
+  validationPassed  : Boolean default false;
+  maxErrorsReached  : Boolean default false;
+
+  // Backward compat (UI search)
+  claimedBy         : String(100);
+
+  // Errores de validación
+  errors            : Composition of many ValidationError on errors.job = $self;
 }
 
 /**
- * Registros de staging parseados del archivo
+ * Solo almacena errores de validación (no todas las líneas)
  */
-entity StgRecord : cuid, managed {
-  job            : Association to UploadJob;
-  lineNumber     : Integer64;
-  currency       : String(10);
-  province       : String(50);
-  product        : String(100);
-  columnCount    : Integer;
-  parseStatus    : String(10);  // OK, ERROR
-  errorReason    : String(100);
-  rawLine        : LargeString; // Solo se guarda para errores
+entity ValidationError : cuid {
+  job               : Association to UploadJob;
+  lineNumber        : Integer64;
+  errorType         : String(50);
+  errorMessage      : String(500);
+  fieldName         : String(100);
+  fieldValue        : String(500);
+  rawLine           : LargeString;
 }

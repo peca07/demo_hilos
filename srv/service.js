@@ -1,173 +1,123 @@
-const fs = require('fs');
-const path = require('path');
+"use strict";
+
 const cds = require('@sap/cds');
+const fragmentProcessor = require('./processing/fragmentProcessor');
 
-module.exports = srv => {
-    const nuke = require('./js/nuke.js');
-    
-    // Registrar handlers cuando el servicio FileProcService esté listo
-    if (srv.name === 'FileProcService') {
-        
-        /**
-         * createJob: Crea un nuevo job de procesamiento
-         * - Valida que el archivo existe
-         * - Guarda metadata del archivo
-         * - Estado inicial: NEW (no encolado aún)
-         */
-        srv.on('createJob', async (req) => {
-            const { fileName, filePath } = req.data;
-            
-            // Resolve absolute path
-            const absolutePath = path.isAbsolute(filePath) 
-                ? filePath 
-                : path.resolve(process.cwd(), filePath);
-            
-            // Validate file exists
-            if (!fs.existsSync(absolutePath)) {
-                req.error(400, `File not found: ${absolutePath}`);
-                return;
-            }
-            
-            // Get file stats
-            const stats = fs.statSync(absolutePath);
-            const totalBytes = stats.size;
-            
-            // Create UploadJob con estado NEW
-            const tx = srv.tx(req);
-            const job = await tx.create('UploadJobs', {
-                fileName: fileName,
-                filePath: absolutePath,
-                status: 'NEW',
-                totalBytes: totalBytes,
-                processedBytes: 0,
-                processedLines: 0,
-                errorMessage: null,
-                batchSize: 10000,  // Batch inicial para HANA
-                lastBatchMs: 0,
-                avgBatchMs: 0,
-                batchesProcessed: 0,
-                attemptCount: 0,
-                maxAttempts: 3,
-                leaseSeconds: 1800  // 30 minutos
-            });
-            
-            console.log(`[API] Job creado: ${job.ID} - ${fileName}`);
-            return job;
-        });
+module.exports = (srv) => {
 
-        /**
-         * startProcessing: Encola el job para que el Worker lo procese
-         * - NO procesa el archivo aquí
-         * - Solo marca status=READY y requestedAt
-         * - El Worker lo tomará cuando esté disponible
-         */
-        srv.on('startProcessing', async (req) => {
-            const { jobId } = req.data;
-            
-            const tx = srv.tx(req);
-            const jobs = await tx.read('UploadJobs').where({ ID: jobId });
-            
-            if (!jobs || jobs.length === 0) {
-                req.error(404, `Job not found: ${jobId}`);
-                return;
-            }
-            
-            const job = jobs[0];
-            
-            // Validar estado actual
-            if (job.status === 'PROCESSING') {
-                console.log(`[API] Job ${jobId} ya está siendo procesado`);
-                return job;
-            }
-            
-            if (job.status === 'DONE') {
-                console.log(`[API] Job ${jobId} ya está completado`);
-                return job;
-            }
-            
-            if (job.status === 'READY') {
-                console.log(`[API] Job ${jobId} ya está en cola`);
-                return job;
-            }
-            
-            // Marcar como READY para que el Worker lo tome
-            const now = new Date().toISOString();
-            await tx.update('UploadJobs', jobId).set({ 
-                status: 'READY',
-                requestedAt: now,
-                errorMessage: null  // Limpiar error previo si es retry
-            });
-            
-            console.log(`[API] Job ${jobId} encolado - Status: READY`);
-            
-            // Retornar job actualizado
-            const updatedJobs = await tx.read('UploadJobs').where({ ID: jobId });
-            return updatedJobs[0];
-        });
+  if (srv.name === 'FileProcService') {
 
-        /**
-         * deleteJob: Elimina un job específico y sus registros asociados
-         */
-        srv.on('deleteJob', async (req) => {
-            const { jobId } = req.data;
-            
-            const tx = srv.tx(req);
-            
-            // Primero eliminar registros asociados
-            await tx.delete('StgRecords').where({ job_ID: jobId });
-            
-            // Luego eliminar el job
-            const result = await tx.delete('UploadJobs').where({ ID: jobId });
-            
-            console.log(`[API] Job ${jobId} eliminado con sus registros`);
-            return { deleted: result || 1 };
-        });
+    // ══════════════════════════════════════════
+    // Startup recovery (runs once when service is served)
+    // ══════════════════════════════════════════
+    let recoveryDone = false;
 
-        /**
-         * clearCompletedJobs: Elimina todos los jobs completados (DONE) y sus registros
-         */
-        srv.on('clearCompletedJobs', async (req) => {
-            const tx = srv.tx(req);
-            
-            // Obtener IDs de jobs completados
-            const completedJobs = await tx.read('UploadJobs').where({ status: 'DONE' });
-            
-            if (!completedJobs || completedJobs.length === 0) {
-                return { deleted: 0 };
-            }
-            
-            const jobIds = completedJobs.map(j => j.ID);
-            
-            // Eliminar registros asociados
-            for (const jobId of jobIds) {
-                await tx.delete('StgRecords').where({ job_ID: jobId });
-            }
-            
-            // Eliminar jobs
-            await tx.delete('UploadJobs').where({ status: 'DONE' });
-            
-            console.log(`[API] ${jobIds.length} jobs completados eliminados`);
-            return { deleted: jobIds.length };
-        });
+    srv.before('*', async () => {
+      if (recoveryDone) return;
+      recoveryDone = true;
+      try {
+        console.log('[FileProcService] Running startup recovery...');
+        await fragmentProcessor.recoverStaleJobs();
+        console.log('[FileProcService] Startup recovery complete');
+      } catch (err) {
+        console.error('[FileProcService] Recovery error:', err.message);
+      }
+    });
 
-        /**
-         * clearAllJobs: Elimina TODOS los jobs y sus registros (usar con precaución)
-         */
-        srv.on('clearAllJobs', async (req) => {
-            const tx = srv.tx(req);
-            
-            // Contar jobs antes de eliminar
-            const allJobs = await tx.read('UploadJobs');
-            const count = allJobs ? allJobs.length : 0;
-            
-            // Eliminar todos los registros
-            await tx.delete('StgRecords');
-            
-            // Eliminar todos los jobs
-            await tx.delete('UploadJobs');
-            
-            console.log(`[API] ${count} jobs eliminados (todos)`);
-            return { deleted: count };
+    // ══════════════════════════════════════════
+    // cancelJob: Cancel an active or queued job
+    // ══════════════════════════════════════════
+    srv.on('cancelJob', async (req) => {
+      const { jobId } = req.data;
+      const tx = srv.tx(req);
+
+      const jobs = await tx.read('UploadJobs').where({ ID: jobId });
+      if (!jobs || jobs.length === 0) {
+        req.error(404, `Job not found: ${jobId}`);
+        return;
+      }
+
+      const job = jobs[0];
+
+      if (job.status === 'DONE' || job.status === 'CANCELLED' || job.status === 'ERROR') {
+        return job; // Already finished
+      }
+
+      if (job.status === 'PROCESSING') {
+        // Set cancel flag + trigger abort
+        await tx.update('UploadJobs', jobId).set({ cancelRequested: true });
+        fragmentProcessor.cancel(jobId);
+        console.log(`[FileProcService] Cancel requested for job ${jobId}`);
+      } else {
+        // QUEUED or NEW → cancel directly
+        await tx.update('UploadJobs', jobId).set({
+          status: 'CANCELLED',
+          errorMessage: 'Cancelled by user',
+          finishedAt: new Date().toISOString(),
         });
-    }
-}
+        console.log(`[FileProcService] Job ${jobId} cancelled (was ${job.status})`);
+      }
+
+      const updated = await tx.read('UploadJobs').where({ ID: jobId });
+      return updated[0];
+    });
+
+    // ══════════════════════════════════════════
+    // deleteJob: Delete a job and its validation errors
+    // ══════════════════════════════════════════
+    srv.on('deleteJob', async (req) => {
+      const { jobId } = req.data;
+      const tx = srv.tx(req);
+
+      // Cancel if active
+      fragmentProcessor.cancel(jobId);
+
+      await tx.delete('ValidationErrors').where({ job_ID: jobId });
+      await tx.delete('UploadJobs').where({ ID: jobId });
+
+      console.log(`[FileProcService] Job ${jobId} deleted`);
+      return { deleted: 1 };
+    });
+
+    // ══════════════════════════════════════════
+    // clearCompletedJobs
+    // ══════════════════════════════════════════
+    srv.on('clearCompletedJobs', async (req) => {
+      const tx = srv.tx(req);
+
+      const completed = await tx.read('UploadJobs').where({ status: 'DONE' });
+      if (!completed || completed.length === 0) return { deleted: 0 };
+
+      for (const job of completed) {
+        await tx.delete('ValidationErrors').where({ job_ID: job.ID });
+      }
+      await tx.delete('UploadJobs').where({ status: 'DONE' });
+
+      console.log(`[FileProcService] ${completed.length} completed jobs deleted`);
+      return { deleted: completed.length };
+    });
+
+    // ══════════════════════════════════════════
+    // clearAllJobs
+    // ══════════════════════════════════════════
+    srv.on('clearAllJobs', async (req) => {
+      const tx = srv.tx(req);
+
+      const allJobs = await tx.read('UploadJobs');
+      const count = allJobs ? allJobs.length : 0;
+
+      // Cancel any active jobs
+      for (const job of allJobs) {
+        if (job.status === 'PROCESSING') {
+          fragmentProcessor.cancel(job.ID);
+        }
+      }
+
+      await tx.delete('ValidationErrors');
+      await tx.delete('UploadJobs');
+
+      console.log(`[FileProcService] ${count} jobs deleted (all)`);
+      return { deleted: count };
+    });
+  }
+};

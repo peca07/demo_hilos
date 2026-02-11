@@ -21,8 +21,8 @@ modules:
     parameters:
       instances: 1
       buildpack: nodejs_buildpack
-      memory: 1G
-      disk-quota: 1G
+      memory: 2G                   # Worker threads + reference data cache
+      disk-quota: 512M             # No local file storage
       command: node node_modules/@sap/cds/bin/cds-serve
     build-parameters:
       builder: npm-ci
@@ -34,26 +34,6 @@ modules:
       - name: cap_nuke_generar_asientos-auth
       - name: cap_nuke_generar_asientos-db
       - name: cap_nuke_generar_asientos-destination
-
-  # ============================================
-  # Worker Module - Procesa jobs en background
-  # ============================================
-  - name: cap_nuke_generar_asientos-worker
-    type: nodejs
-    path: gen/srv
-    parameters:
-      instances: 1              # Escalar a 2-3 para más throughput
-      buildpack: nodejs_buildpack
-      memory: 1G
-      disk-quota: 512M
-      command: node srv/worker.js
-      no-route: true            # No expone HTTP endpoints
-      health-check-type: process  # Health check basado en proceso, no HTTP
-    build-parameters:
-      builder: npm-ci
-    requires:
-      - name: cap_nuke_generar_asientos-db
-      # Worker no necesita XSUAA porque no expone endpoints HTTP
 
   # ============================================
   # UI Dashboard Module
