@@ -2,13 +2,13 @@ using teco from '../db/tablas';
 using fileproc from '../db/schema';
 
 // Servicio para generar asientos (futuro)
-@requires: 'NukeService'
+// @requires: 'NukeService'
 service NukeGenerarAsientosService {
 
 }
 
 // Servicio para procesamiento de archivos
-@requires: 'FileProcessor'
+// @requires: 'FileProcessor'
 service FileProcService {
   entity UploadJobs       as projection on fileproc.UploadJob;
   entity ValidationErrors as projection on fileproc.ValidationError;
@@ -23,7 +23,7 @@ service FileProcService {
 }
 
 // SharePoint Files Service
-@requires: 'FileProcessor'
+// @requires: 'FileProcessor'
 @path: 'sharepoint'
 @impl: './sharepoint-service.js'
 service SharePointService {

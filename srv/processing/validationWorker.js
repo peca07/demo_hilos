@@ -2,8 +2,8 @@
 
 /**
  * Validation Worker Thread
- * Receives text fragments, validates each line, returns only errors.
- * All reference data lookups are O(1) via Sets.
+ * Receives text fragments, validates structural integrity of each line.
+ * Currently validates: minimum 18 columns per line (semicolon-delimited).
  */
 
 const { parentPort, workerData } = require('worker_threads');
@@ -44,51 +44,11 @@ parentPort.on('message', (msg) => {
 
     let errorType = null;
     let errorMessage = null;
-    let fieldName = null;
-    let fieldValue = null;
 
-    if (columnCount < 12) {
+    // Only validation: column count must be >= 18
+    if (columnCount < 18) {
       errorType = 'too_few_columns';
-      errorMessage = `Expected >=12 columns, got ${columnCount}`;
-    } else {
-      const currency = (cols[3] || '').trim();
-      const province = (cols[10] || '').trim();
-      const product = (cols[11] || '').trim();
-
-      // Required fields
-      if (!currency) {
-        errorType = 'missing_field';
-        errorMessage = 'Currency is empty';
-        fieldName = 'currency';
-      } else if (!province) {
-        errorType = 'missing_field';
-        errorMessage = 'Province is empty';
-        fieldName = 'province';
-      } else if (!product) {
-        errorType = 'missing_field';
-        errorMessage = 'Product is empty';
-        fieldName = 'product';
-      }
-
-      // Reference data validation (only if no basic error)
-      if (!errorType && refData.currencies && !refData.currencies.has(currency)) {
-        errorType = 'invalid_currency';
-        errorMessage = `Currency '${currency}' not found`;
-        fieldName = 'currency';
-        fieldValue = currency;
-      }
-      if (!errorType && refData.provinces && !refData.provinces.has(province)) {
-        errorType = 'invalid_province';
-        errorMessage = `Province '${province}' not found`;
-        fieldName = 'province';
-        fieldValue = province;
-      }
-      if (!errorType && refData.products && !refData.products.has(product)) {
-        errorType = 'invalid_product';
-        errorMessage = `Product '${product}' not found`;
-        fieldName = 'product';
-        fieldValue = product;
-      }
+      errorMessage = `Expected >=18 columns, got ${columnCount}`;
     }
 
     if (errorType) {
@@ -99,8 +59,7 @@ parentPort.on('message', (msg) => {
           lineNumber,
           errorType,
           errorMessage,
-          fieldName,
-          fieldValue: fieldValue || null,
+          columnCount,
           rawLine: line.substring(0, 500), // Cap to 500 chars
         };
       }

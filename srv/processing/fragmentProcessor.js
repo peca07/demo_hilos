@@ -221,8 +221,7 @@ class FragmentProcessor {
             line: firstError.lineNumber,
             type: firstError.errorType,
             message: firstError.errorMessage,
-            field: firstError.fieldName,
-            value: firstError.fieldValue,
+            columnCount: firstError.columnCount,
             rawLine: firstError.rawLine
           });
         }
