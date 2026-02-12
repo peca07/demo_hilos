@@ -18,12 +18,12 @@ const { logMemory, checkMemoryThreshold } = require('./memoryLogger');
 // Configuration
 // ============================================
 const CONFIG = {
-  MAX_CONCURRENT_JOBS: 1,
+  MAX_CONCURRENT_JOBS: 2, // Allow 2 concurrent jobs for multi-user testing
   NUM_WORKERS: 2,
   FRAGMENT_MAX_BYTES: 32 * 1024 * 1024, // 32MB
   HEARTBEAT_INTERVAL_MS: 15000,
   HEARTBEAT_TIMEOUT_MS: 60000,
-  MAX_ERRORS_PER_JOB: 10000,
+  MAX_ERRORS_PER_JOB: 10000, // No longer used (we don't store errors)
   FAIL_FAST_THRESHOLD: 50000,
   MEMORY_THRESHOLD_PERCENT: 75,
   CONTAINER_MEMORY_MB: 2048,
@@ -189,7 +189,7 @@ class FragmentProcessor {
     let errorLines = 0;
     let fragmentNumber = 0;
     let fragmentsDone = 0;
-    const allErrors = [];
+    let firstError = null; // Only store first error for diagnostics
     const startTime = Date.now();
 
     try {
@@ -214,10 +214,17 @@ class FragmentProcessor {
         errorLines += msg.errorCount;
         fragmentsDone++;
 
-        // Collect errors (up to cap)
-        if (allErrors.length < CONFIG.MAX_ERRORS_PER_JOB) {
-          const remaining = CONFIG.MAX_ERRORS_PER_JOB - allErrors.length;
-          allErrors.push(...msg.errors.slice(0, remaining));
+        // Capture only the first error for diagnostics
+        if (!firstError && msg.firstError) {
+          firstError = msg.firstError;
+          console.error(`[FragmentProcessor] FIRST ERROR detected:`, {
+            line: firstError.lineNumber,
+            type: firstError.errorType,
+            message: firstError.errorMessage,
+            field: firstError.fieldName,
+            value: firstError.fieldValue,
+            rawLine: firstError.rawLine
+          });
         }
       });
       jobState.pool = pool;
@@ -272,8 +279,25 @@ class FragmentProcessor {
       let fragmentBuffer = '';
       let fragmentBytes = 0;
       let fragmentStartLine = 1;
+      let firstChunkLogged = false;
 
       for await (const chunk of stream) {
+        // Log first 5 lines for diagnostics
+        if (!firstChunkLogged) {
+          const preview = chunk.substring(0, 2000);
+          const previewLines = preview.split('\n').slice(0, 5);
+          console.log(`[FragmentProcessor] First lines preview (delimiter check):`);
+          previewLines.forEach((line, idx) => {
+            console.log(`  Line ${idx + 1}: ${line.substring(0, 200)}`);
+            if (idx === 0) {
+              const semicolonCount = (line.match(/;/g) || []).length;
+              const pipeCount = (line.match(/\|/g) || []).length;
+              const tabCount = (line.match(/\t/g) || []).length;
+              console.log(`    Delimiters: ; = ${semicolonCount}, | = ${pipeCount}, tab = ${tabCount}`);
+            }
+          });
+          firstChunkLogged = true;
+        }
         // Check cancel
         if (jobState.cancelled) throw new Error('Job cancelled');
 
@@ -320,8 +344,6 @@ class FragmentProcessor {
               fragmentNumber,
               data: buf.buffer,
               startLineNumber: startLine,
-              maxErrors: CONFIG.MAX_ERRORS_PER_JOB,
-              currentTotalErrors: allErrors.length,
             },
             [buf.buffer]
           );
@@ -346,8 +368,6 @@ class FragmentProcessor {
             fragmentNumber,
             data: buf.buffer,
             startLineNumber: fragmentStartLine,
-            maxErrors: CONFIG.MAX_ERRORS_PER_JOB,
-            currentTotalErrors: allErrors.length,
           },
           [buf.buffer]
         );
@@ -357,21 +377,11 @@ class FragmentProcessor {
       // 9. Wait for all workers to finish
       await pool.waitAllDone();
 
-      // 10. Store validation errors in HANA (batch)
-      if (allErrors.length > 0) {
-        console.log(`[FragmentProcessor] Storing ${allErrors.length} validation errors...`);
-        const BATCH = 5000;
-        for (let i = 0; i < allErrors.length; i += BATCH) {
-          const batch = allErrors.slice(i, i + BATCH).map((e) => ({
-            job_ID: jobId,
-            lineNumber: e.lineNumber,
-            errorType: e.errorType,
-            errorMessage: e.errorMessage,
-            fieldName: e.fieldName || null,
-            fieldValue: e.fieldValue || null,
-            rawLine: e.rawLine || null,
-          }));
-          await db.create('fileproc.ValidationError', batch);
+      // 10. Log summary (no DB storage of individual errors)
+      if (errorLines > 0) {
+        console.log(`[FragmentProcessor] Job completed with ${errorLines.toLocaleString()} errors (not stored in DB)`);
+        if (firstError) {
+          console.log(`[FragmentProcessor] First error was at line ${firstError.lineNumber}: ${firstError.errorMessage}`);
         }
       }
 
@@ -395,7 +405,6 @@ class FragmentProcessor {
         linesPerSecond: lps,
         bytesPerSecond: bps,
         validationPassed: errorLines === 0,
-        maxErrorsReached: allErrors.length >= CONFIG.MAX_ERRORS_PER_JOB,
       });
 
       console.log(

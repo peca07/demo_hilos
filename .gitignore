@@ -9,6 +9,12 @@ gen/
 node_modules/
 target/
 
+gen/
+node_modules/
+target/
+app/dashboard/dist/
+app/router/resources/dashboard/
+
 # Web IDE, App Studio
 .che/
 .gen/

@@ -1,7 +1,7 @@
 _schema-version: 3.3.0
 ID: cap_nuke_generar_asientos
 version: 1.0.0
-description: "CAP Application - File Processing with Worker Pattern"
+description: "CAP Application - File Processing with Worker Threads"
 parameters:
   enable-parallel-deployments: true
 build-parameters:
@@ -23,7 +23,7 @@ modules:
       buildpack: nodejs_buildpack
       memory: 2G                   # Worker threads + reference data cache
       disk-quota: 512M             # No local file storage
-      command: node node_modules/@sap/cds/bin/cds-serve
+      command: npm start
     build-parameters:
       builder: npm-ci
     provides:
@@ -36,21 +36,20 @@ modules:
       - name: cap_nuke_generar_asientos-destination
 
   # ============================================
-  # UI Dashboard Module
+  # UI Dashboard - Freestyle UI5 (no build needed)
   # ============================================
   - name: cap_nuke_generar_asientos-dashboard
     type: html5
     path: app/dashboard
     build-parameters:
-      build-result: dist
       builder: custom
-      commands:
-        - npm ci
-        - npm run build
+      commands: []
+      build-result: webapp
       supported-platforms: []
 
   # ============================================
-  # Approuter - Sirve UI y hace proxy al backend
+  # Approuter - Sirve UI + proxy al backend
+  # UI se sirve como archivos estáticos locales
   # ============================================
   - name: cap_nuke_generar_asientos-approuter
     type: approuter.nodejs
@@ -59,9 +58,14 @@ modules:
       instances: 1
       buildpack: nodejs_buildpack
       memory: 256M
-      disk-quota: 256M
+      disk-quota: 512M
     build-parameters:
       builder: npm-ci
+      requires:
+        - name: cap_nuke_generar_asientos-dashboard
+          artifacts:
+            - '*'
+          target-path: resources/dashboard
     requires:
       - name: srv-api
         group: destinations
@@ -70,29 +74,10 @@ modules:
           url: ~{srv-url}
           forwardAuthToken: true
       - name: cap_nuke_generar_asientos-auth
-      - name: cap_nuke_generar_asientos-html5-repo-runtime
     provides:
       - name: approuter-url
         properties:
           app-url: ${default-url}
-
-  # ============================================
-  # HTML5 App Deployer
-  # ============================================
-  - name: cap_nuke_generar_asientos-html5-deployer
-    type: com.sap.application.content
-    path: .
-    requires:
-      - name: cap_nuke_generar_asientos-html5-repo-host
-        parameters:
-          content-target: true
-    build-parameters:
-      build-result: resources
-      requires:
-        - name: cap_nuke_generar_asientos-dashboard
-          artifacts:
-            - dist/*
-          target-path: resources/dashboard/
 
   # ============================================
   # DB Deployer - Despliega schema a HANA
@@ -129,24 +114,6 @@ resources:
     parameters:
       service: hana
       service-plan: hdi-shared
-
-  # ============================================
-  # HTML5 App Repository - Runtime
-  # ============================================
-  - name: cap_nuke_generar_asientos-html5-repo-runtime
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: html5-apps-repo
-      service-plan: app-runtime
-
-  # ============================================
-  # HTML5 App Repository - Host
-  # ============================================
-  - name: cap_nuke_generar_asientos-html5-repo-host
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: html5-apps-repo
-      service-plan: app-host
 
   # ============================================
   # Destination Service - External APIs (Graph)

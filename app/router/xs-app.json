@@ -3,12 +3,6 @@
   "authenticationMethod": "route",
   "routes": [
     {
-      "source": "^/dashboard/(.*)$",
-      "target": "$1",
-      "service": "html5-apps-repo-rt",
-      "authenticationType": "xsuaa"
-    },
-    {
       "source": "^/odata/(.*)$",
       "target": "/odata/$1",
       "destination": "srv-api",
@@ -16,9 +10,15 @@
       "csrfProtection": false
     },
     {
+      "source": "^/dashboard/(.*)$",
+      "target": "$1",
+      "localDir": "resources/dashboard",
+      "authenticationType": "xsuaa"
+    },
+    {
       "source": "^(.*)$",
       "target": "$1",
-      "service": "html5-apps-repo-rt",
+      "destination": "srv-api",
       "authenticationType": "xsuaa"
     }
   ]

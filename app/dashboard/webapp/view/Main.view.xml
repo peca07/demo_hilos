@@ -353,8 +353,8 @@
                                         <Text text="{totalDurationText}"/>
                                         <Text 
                                             text="{
-                                                path: 'avgBatchText',
-                                                formatter: '.formatAvgBatch'
+                                                parts: ['fragmentsDone', 'numFragments'],
+                                                formatter: '.formatFragments'
                                             }" 
                                             class="textMuted"/>
                                     </VBox>
@@ -382,8 +382,8 @@
                                         <Text text="{claimedBy}"/>
                                         <Text 
                                             text="{
-                                                path: 'attemptCount',
-                                                formatter: '.formatAttempts'
+                                                path: 'errorLines',
+                                                formatter: '.formatErrors'
                                             }" 
                                             class="textMuted"/>
                                     </VBox>

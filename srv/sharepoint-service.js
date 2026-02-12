@@ -44,11 +44,35 @@ module.exports = class SharePointService extends cds.ApplicationService {
           const { getDestination } = await import('@sap-cloud-sdk/connectivity');
           const destination = await getDestination({ destinationName: this.destinationName });
           if (destination) {
+            // Intentar leer driveId y folderItemId desde múltiples ubicaciones
+            let driveId = 
+              destination.originalProperties?.driveId ||
+              destination.destinationConfiguration?.driveId ||
+              process.env.GRAPH_DRIVE_ID ||
+              'b!ONJaTXThrUSlIF7Q4Wx2m4YsdEQF1mlDvlvUMMvUsMg2mQ75FZwDSYW6p_xyGQV_';
+            
+            let folderItemId = 
+              destination.originalProperties?.folderItemId ||
+              destination.destinationConfiguration?.folderItemId ||
+              process.env.GRAPH_FOLDER_ID ||
+              '01EYS6Y2JYBEFXDYCSRRHKGP5H4U2TBLN3';
+
+            // También intentar leer desde VCAP_SERVICES directamente
+            if (vcapServices.destination && Array.isArray(vcapServices.destination)) {
+              const destConfig = vcapServices.destination.find(d => d.name === this.destinationName);
+              if (destConfig && destConfig.credentials) {
+                driveId = destConfig.credentials.driveId || driveId;
+                folderItemId = destConfig.credentials.folderItemId || folderItemId;
+              }
+            }
+
+            console.log(`[SharePoint] Using destination: driveId=${driveId ? 'found' : 'missing'}, folderItemId=${folderItemId ? 'found' : 'missing'}`);
+
             return {
               useDestination: true,
               destination,
-              driveId: destination.originalProperties?.driveId || process.env.GRAPH_DRIVE_ID,
-              folderItemId: destination.originalProperties?.folderItemId || process.env.GRAPH_FOLDER_ID,
+              driveId,
+              folderItemId,
             };
           }
         }

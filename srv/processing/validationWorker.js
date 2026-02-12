@@ -21,7 +21,7 @@ const workerId = workerData.workerId || 0;
 parentPort.on('message', (msg) => {
   if (msg.type !== 'process_fragment') return;
 
-  const { fragmentNumber, data, startLineNumber, maxErrors, currentTotalErrors } = msg;
+  const { fragmentNumber, data, startLineNumber } = msg;
 
   // Convert transferred ArrayBuffer back to string
   const text = Buffer.from(data).toString('utf8');
@@ -29,8 +29,9 @@ parentPort.on('message', (msg) => {
 
   let processedLines = 0;
   let errorCount = 0;
-  const errors = [];
-  const errorsRemaining = Math.max(0, (maxErrors || 10000) - (currentTotalErrors || 0));
+
+  // Sample first error for diagnostics
+  let firstError = null;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -92,15 +93,16 @@ parentPort.on('message', (msg) => {
 
     if (errorType) {
       errorCount++;
-      if (errors.length < errorsRemaining) {
-        errors.push({
+      // Only capture first error for diagnostics
+      if (!firstError) {
+        firstError = {
           lineNumber,
           errorType,
           errorMessage,
           fieldName,
           fieldValue: fieldValue || null,
-          rawLine: line.substring(0, 1000), // Cap to 1KB
-        });
+          rawLine: line.substring(0, 500), // Cap to 500 chars
+        };
       }
     }
   }
@@ -115,7 +117,7 @@ parentPort.on('message', (msg) => {
     processedLines,
     processedBytes: Buffer.byteLength(text, 'utf8'),
     errorCount,
-    errors,
+    firstError, // Only first error for diagnostics
     memory: { rss: mem.rss, heapUsed: mem.heapUsed },
   });
 });

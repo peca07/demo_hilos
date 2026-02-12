@@ -80,25 +80,33 @@ module.exports = (srv) => {
     });
 
     // ══════════════════════════════════════════
-    // clearCompletedJobs
+    // clearCompletedJobs: borra jobs en estado final (DONE, ERROR, CANCELLED)
+    // Primero borra ValidationErrors (hijos) y luego UploadJobs para no violar FK.
+    // Optimizado: borrado en batch usando IN para minimizar queries a BD.
     // ══════════════════════════════════════════
+    const TERMINAL_STATUSES = ['DONE', 'ERROR', 'CANCELLED'];
+
     srv.on('clearCompletedJobs', async (req) => {
       const tx = srv.tx(req);
 
-      const completed = await tx.read('UploadJobs').where({ status: 'DONE' });
-      if (!completed || completed.length === 0) return { deleted: 0 };
+      const all = await tx.read('UploadJobs');
+      const completed = (all || []).filter((j) => TERMINAL_STATUSES.includes(j.status));
+      if (completed.length === 0) return { deleted: 0 };
 
-      for (const job of completed) {
-        await tx.delete('ValidationErrors').where({ job_ID: job.ID });
-      }
-      await tx.delete('UploadJobs').where({ status: 'DONE' });
+      const jobIds = completed.map((j) => j.ID);
 
-      console.log(`[FileProcService] ${completed.length} completed jobs deleted`);
+      // Borrado en batch: primero ValidationErrors, luego UploadJobs
+      const { DELETE } = cds.ql;
+      await tx.run(DELETE.from('ValidationErrors').where`job_ID in ${jobIds}`);
+      await tx.run(DELETE.from('UploadJobs').where`ID in ${jobIds}`);
+
+      console.log(`[FileProcService] ${completed.length} completed jobs deleted (DONE/ERROR/CANCELLED)`);
       return { deleted: completed.length };
     });
 
     // ══════════════════════════════════════════
-    // clearAllJobs
+    // clearAllJobs: borra todos los jobs y sus ValidationErrors de la BD.
+    // Cancela los que estén PROCESSING/QUEUED antes de borrar.
     // ══════════════════════════════════════════
     srv.on('clearAllJobs', async (req) => {
       const tx = srv.tx(req);
@@ -106,15 +114,17 @@ module.exports = (srv) => {
       const allJobs = await tx.read('UploadJobs');
       const count = allJobs ? allJobs.length : 0;
 
-      // Cancel any active jobs
-      for (const job of allJobs) {
-        if (job.status === 'PROCESSING') {
+      // Cancelar jobs activos antes de borrar
+      for (const job of allJobs || []) {
+        if (job.status === 'PROCESSING' || job.status === 'QUEUED') {
           fragmentProcessor.cancel(job.ID);
         }
       }
 
-      await tx.delete('ValidationErrors');
-      await tx.delete('UploadJobs');
+      // Borrado en batch: primero hijos, luego padres (evita violación de FK)
+      const { DELETE } = cds.ql;
+      await tx.run(DELETE.from('ValidationErrors'));
+      await tx.run(DELETE.from('UploadJobs'));
 
       console.log(`[FileProcService] ${count} jobs deleted (all)`);
       return { deleted: count };

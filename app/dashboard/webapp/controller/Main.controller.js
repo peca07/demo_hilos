@@ -488,14 +488,16 @@ sap.ui.define([
             return iLinesPerSec.toLocaleString("es-ES");
         },
         
-        formatAvgBatch: function(sAvgBatchText) {
-            if (!sAvgBatchText) return "";
-            return "Avg batch: " + sAvgBatchText;
+        formatFragments: function(iFragmentsDone, iNumFragments) {
+            if (!iNumFragments || iNumFragments === 0) return "";
+            var done = parseInt(iFragmentsDone, 10) || 0;
+            var total = parseInt(iNumFragments, 10) || 0;
+            return "Fragmentos: " + done + "/" + total;
         },
         
-        formatAttempts: function(iAttempts) {
-            if (!iAttempts) return "";
-            return "Intento " + iAttempts;
+        formatErrors: function(iErrorLines) {
+            if (!iErrorLines || iErrorLines === 0) return "";
+            return "Errores: " + iErrorLines.toLocaleString("es-ES");
         },
         
         // ==========================================
