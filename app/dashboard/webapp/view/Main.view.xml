@@ -147,6 +147,21 @@
                         </OverflowToolbar>
                     </headerToolbar>
                     
+                    <Toolbar class="sapUiSmallMarginBottom">
+                        <Label text="Interface:" labelFor="interfaceCombo" class="sapUiSmallMarginEnd"/>
+                        <ComboBox
+                            id="interfaceCombo"
+                            placeholder="Seleccionar interface..."
+                            selectionChange="onInterfaceChange"
+                            width="22rem"
+                            items="{interfacesModel>/interfaces}">
+                            <core:ListItem
+                                key="{interfacesModel>int_codigo}"
+                                text="{interfacesModel>descripcion}"
+                                icon="{interfacesModel>sap_icon}"/>
+                        </ComboBox>
+                    </Toolbar>
+
                     <Table
                         id="sharePointTable"
                         items="{viewModel>/sharePointFiles}"

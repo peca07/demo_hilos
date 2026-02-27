@@ -34,14 +34,22 @@ sap.ui.define([
                 selectedSharePointFile: null
             });
             this.getView().setModel(oViewModel, "viewModel");
+
+            // Local interfaces list (feeds ComboBox)
+            var oInterfacesModel = new JSONModel({
+                interfaces: [
+                    { int_codigo: "AJU00", descripcion: "Interface Ajustes por FAN",           sap_icon: "sap-icon://settings",        ruta: "INTERFACES/AJU00/new" },
+                    { int_codigo: "TRA00", descripcion: "Interface Facturado por tráfico FAN", sap_icon: "sap-icon://shipping-status", ruta: "INTERFACES/TRA00/new" }
+                ]
+            });
+            this.getView().setModel(oInterfacesModel, "interfacesModel");
             
             // Wait for the OData model to be ready before loading data
             var that = this;
             this._waitForModel().then(function() {
                 that._startAutoRefresh();
                 that._loadStats();
-                // Load SharePoint files on init
-                that._loadSharePointFiles();
+                // SharePoint table starts empty; loaded on interface selection
             }).catch(function(oError) {
                 console.error("Error initializing model:", oError);
             });
@@ -520,43 +528,61 @@ sap.ui.define([
         },
         
         onRefreshSharePoint: function() {
-            this._loadSharePointFiles();
-            MessageToast.show(this._getText("refreshed"));
+            var oCombo = this.byId("interfaceCombo");
+            var sKey   = oCombo ? oCombo.getSelectedKey() : "";
+            if (!sKey) {
+                MessageToast.show("Seleccioná una interface primero");
+                return;
+            }
+            var aInterfaces = this.getView().getModel("interfacesModel").getProperty("/interfaces");
+            var oSelected   = aInterfaces.find(function(o) { return o.int_codigo === sKey; });
+            if (oSelected) {
+                this._loadSharePointFiles(oSelected.ruta);
+                MessageToast.show(this._getText("refreshed"));
+            }
+        },
+
+        onInterfaceChange: function(oEvent) {
+            var sKey        = oEvent.getSource().getSelectedKey();
+            var aInterfaces = this.getView().getModel("interfacesModel").getProperty("/interfaces");
+            var oSelected   = aInterfaces.find(function(o) { return o.int_codigo === sKey; });
+            if (oSelected) {
+                this._loadSharePointFiles(oSelected.ruta);
+            }
         },
         
-        _loadSharePointFiles: function() {
+        _loadSharePointFiles: function(sFolderPath) {
             var that = this;
             var oViewModel = this.getView().getModel("viewModel");
             var oSharePointModel = this.getOwnerComponent().getModel("sharepoint");
-            
+
             if (!oSharePointModel) {
                 console.warn("SharePoint model not available");
                 return;
             }
-            
+
             oViewModel.setProperty("/sharePointLoading", true);
-            
-            // Call listFiles function
+            oViewModel.setProperty("/sharePointFiles", []);
+
             var oOperation = oSharePointModel.bindContext("/listFiles(...)");
-            
+            oOperation.setParameter("folderPath", sFolderPath || "");
+
             oOperation.execute().then(function() {
                 var oResult = oOperation.getBoundContext().getObject();
-                
-                // Handle the result - it could be an array or have a value property
+
                 var aFiles = [];
                 if (Array.isArray(oResult)) {
                     aFiles = oResult;
                 } else if (oResult && oResult.value) {
                     aFiles = oResult.value;
                 } else if (oResult) {
-                    // Single result or object with file properties
                     aFiles = [oResult];
                 }
-                
-                console.log("[SharePoint] Loaded files:", aFiles.length);
+
+                console.log("[SharePoint] Loaded items:", aFiles.length);
                 oViewModel.setProperty("/sharePointFiles", aFiles);
                 oViewModel.setProperty("/sharePointLoading", false);
-                
+
             }).catch(function(oError) {
                 console.error("[SharePoint] Error loading files:", oError);
                 oViewModel.setProperty("/sharePointLoading", false);

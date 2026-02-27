@@ -28,9 +28,10 @@ service FileProcService {
 @impl: './sharepoint-service.js'
 service SharePointService {
 
-  type SharePointFile {
+  type SharePointItem {
     itemId     : String;
     name       : String;
+    isFolder   : Boolean;
     size       : Integer64;
     mimeType   : String;
     webUrl     : String;
@@ -38,9 +39,8 @@ service SharePointService {
     modifiedAt : Timestamp;
   }
 
-  function listFiles() returns array of SharePointFile;
-  function listFilesInFolder(folderId: String) returns array of SharePointFile;
-  function getDownloadUrl(itemId: String) returns { url: String; expiresAt: Timestamp };
+  action listFiles(folderPath : String)  returns array of SharePointItem;
+  action getDownloadUrl(itemId : String) returns { url: String; expiresAt: Timestamp };
 
   // Crear job desde SharePoint (UI llama esta action)
   action createJobFromSharePoint(itemId: String, fileName: String) returns String;

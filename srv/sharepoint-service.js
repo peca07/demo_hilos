@@ -14,7 +14,6 @@ module.exports = class SharePointService extends cds.ApplicationService {
     this._tokenExpiry = null;
 
     this.on('listFiles', this.handleListFiles);
-    this.on('listFilesInFolder', this.handleListFilesInFolder);
     this.on('getDownloadUrl', this.handleGetDownloadUrl);
     this.on('createJobFromSharePoint', this.handleCreateJobFromSharePoint);
 
@@ -149,15 +148,16 @@ module.exports = class SharePointService extends cds.ApplicationService {
     });
   }
 
-  mapFileResponse(item) {
+  mapSharePointItem(i) {
     return {
-      itemId: item.id,
-      name: item.name,
-      size: item.size || 0,
-      mimeType: item.file?.mimeType || 'application/octet-stream',
-      webUrl: item.webUrl,
-      createdAt: item.createdDateTime ? new Date(item.createdDateTime) : null,
-      modifiedAt: item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime) : null,
+      itemId:    i.id,
+      name:      i.name,
+      isFolder:  !!i.folder,
+      size:      i.size ?? 0,
+      mimeType:  i.file?.mimeType ?? null,
+      webUrl:    i.webUrl ?? null,
+      createdAt: i.createdDateTime         ? new Date(i.createdDateTime)         : null,
+      modifiedAt: i.lastModifiedDateTime   ? new Date(i.lastModifiedDateTime)    : null,
     };
   }
 
@@ -167,35 +167,27 @@ module.exports = class SharePointService extends cds.ApplicationService {
 
   async handleListFiles(req) {
     try {
+      const { folderPath } = req.data;
       const config = await this.getConfig();
       const { driveId, folderItemId } = config;
-      if (!driveId || !folderItemId) return req.error(500, 'Missing driveId or folderItemId');
 
-      const response = await this.executeGraphRequest(
-        `/v1.0/drives/${driveId}/items/${folderItemId}/children`
-      );
-      const items = response.data?.value || [];
-      return items.filter((i) => i.file).map((i) => this.mapFileResponse(i));
+      if (!driveId) return req.error(500, 'Missing driveId');
+
+      let graphPath;
+      if (folderPath && folderPath.trim()) {
+        const normalizedPath = folderPath.trim().replace(/^\/+|\/+$/g, '');
+        graphPath = `/v1.0/drives/${driveId}/root:/${normalizedPath}:/children`;
+      } else {
+        if (!folderItemId) return req.error(500, 'Missing folderItemId');
+        graphPath = `/v1.0/drives/${driveId}/items/${folderItemId}/children`;
+      }
+
+      const response = await this.executeGraphRequest(graphPath);
+      const items    = response.data?.value || [];
+      return items.map((i) => this.mapSharePointItem(i));
     } catch (error) {
       console.error('[SharePoint] Error listing files:', error.message);
       return req.error(500, `Failed to list files: ${error.message}`);
-    }
-  }
-
-  async handleListFilesInFolder(req) {
-    try {
-      const { folderId } = req.data;
-      const config = await this.getConfig();
-      if (!config.driveId) return req.error(500, 'Missing driveId');
-
-      const response = await this.executeGraphRequest(
-        `/v1.0/drives/${config.driveId}/items/${folderId}/children`
-      );
-      const items = response.data?.value || [];
-      return items.filter((i) => i.file).map((i) => this.mapFileResponse(i));
-    } catch (error) {
-      console.error('[SharePoint] Error listing folder:', error.message);
-      return req.error(500, `Failed to list folder: ${error.message}`);
     }
   }
 
